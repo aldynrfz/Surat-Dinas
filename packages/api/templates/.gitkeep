@@ -1,0 +1,3 @@
+# This directory will contain DOCX letter templates
+# Templates should be named according to letterType
+# Example: active_student.docx, leave_request.docx, etc.

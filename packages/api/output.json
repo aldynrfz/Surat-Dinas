@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "message": "Internal server error",
+  "error": "Unexpected end of form",
+  "stack": "Error: Unexpected end of form\n    at Multipart._final (C:\\Users\\Asus\\OneDrive\\Desktop\\Surat Dinas\\node_modules\\.pnpm\\busboy@1.6.0\\node_modules\\busboy\\lib\\types\\multipart.js:588:17)\n    at prefinish (node:internal/streams/writable:914:14)\n    at finishMaybe (node:internal/streams/writable:928:5)\n    at Writable.end (node:internal/streams/writable:843:5)\n    at IncomingMessage.onend (node:internal/streams/readable:946:10)\n    at Object.onceWrapper (node:events:622:28)\n    at IncomingMessage.emit (node:events:508:28)\n    at endReadableNT (node:internal/streams/readable:1701:12)\n    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)"
+}

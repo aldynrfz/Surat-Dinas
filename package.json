@@ -1,0 +1,36 @@
+{
+  "name": "school-admin-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "School Admin Dashboard - Monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "preview": "npm run preview --workspace web"
+  },
+  "keywords": [
+    "monorepo",
+    "school-admin",
+    "react",
+    "vite"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^7.3.7",
+    "@mui/x-date-pickers": "^8.27.0",
+    "dayjs": "^1.11.19",
+    "firebase": "^12.9.0",
+    "flatpickr": "^4.6.13",
+    "react-flatpickr": "^4.0.11"
+  }
+}
