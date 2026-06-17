@@ -45,18 +45,11 @@ const AgendaSurat = () => {
         recipient: '', // Kepada (Incoming/Outgoing)
         classificationCode: '',
         note: '',
-        status: 'Archived' // Archived
+        status: 'Archived', // Archived
+        attachment_url: '' // Add this
     };
     const [formData, setFormData] = useState(initialFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // File Upload State (Digital Archive)
-    const [uploadFiles, setUploadFiles] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [isUploading, setIsUploading] = useState(false);
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [deleteAttachmentModal, setDeleteAttachmentModal] = useState({ isOpen: false, fileId: null, fileName: '' });
-    const fileInputRef = useRef(null);
 
     // --- Effects ---
     useEffect(() => {
@@ -104,98 +97,18 @@ const AgendaSurat = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setFormData(initialFormState);
-        setUploadFiles([]);
-        setUploadProgress(0);
-    };
-
-    // --- File Upload Helpers ---
-    const handleFileChange = (files) => {
-        if (!files || files.length === 0) return;
-        const allowed = ['application/pdf', 'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/jpeg', 'image/png'];
-        
-        const validFiles = [];
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            if (!allowed.includes(file.type)) {
-                showToast(`Format file ${file.name} tidak didukung.`, 'error');
-            } else if (file.size > 10 * 1024 * 1024) {
-                showToast(`Ukuran file ${file.name} maksimal 10MB.`, 'error');
-            } else {
-                validFiles.push(file);
-            }
-        }
-        
-        if (validFiles.length > 0) {
-            setUploadFiles(prev => [...prev, ...validFiles]);
-        }
-    };
-
-    const removeReadyUploadFile = (index) => {
-        setUploadFiles(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const uploadFilesToDrive = async (agendaId) => {
-        if (uploadFiles.length === 0) return null;
-        setIsUploading(true);
-        setUploadProgress(0);
-
-        return new Promise((resolve, reject) => {
-            const formPayload = new FormData();
-            uploadFiles.forEach(file => formPayload.append('files', file));
-            if (agendaId) formPayload.append('agendaId', agendaId);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${API_URL}/api/drive/upload`);
-
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    setUploadProgress(Math.round((e.loaded / e.total) * 100));
-                }
-            };
-
-            xhr.onload = () => {
-                setIsUploading(false);
-                if (xhr.status === 200) {
-                    const data = JSON.parse(xhr.responseText);
-                    resolve(data.data);
-                } else {
-                    reject(new Error('Upload gagal'));
-                }
-            };
-
-            xhr.onerror = () => {
-                setIsUploading(false);
-                reject(new Error('Koneksi gagal saat upload'));
-            };
-
-            xhr.send(formPayload);
-        });
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            let savedId = currentLetterId;
-            let attachmentData = {};
-
             if (modalMode === 'add') {
-                const newId = await addAgenda(formData);
-                savedId = newId;
+                await addAgenda(formData);
                 showToast('Agenda surat berhasil ditambahkan', 'success');
             } else if (modalMode === 'edit') {
                 await updateAgenda(currentLetterId, formData);
                 showToast('Agenda surat berhasil diperbarui', 'success');
-            }
-
-            // Upload files if selected
-            if (uploadFiles.length > 0 && savedId) {
-                const driveResults = await uploadFilesToDrive(savedId);
-                if (driveResults && driveResults.length > 0) {
-                    showToast(`${driveResults.length} file berhasil diunggah ke Google Drive!`, 'success');
-                }
             }
 
             closeModal();
@@ -229,44 +142,7 @@ const AgendaSurat = () => {
         }
     };
 
-    // --- Delete Existing Attachment logic ---
-    const handleConfirmDeleteAttachment = async () => {
-        setIsUploading(true);
-        try {
-            const { fileId } = deleteAttachmentModal;
-            const res = await fetch(`${API_URL}/api/drive/${fileId}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Akses Google Drive gagal / tidak ditemukan');
-            
-            const prevAttachments = formData.attachments || 
-              (formData.attachment_url ? [{ attachment_url: formData.attachment_url, drive_file_id: formData.drive_file_id, attachment_name: formData.attachment_name }] : []);
-              
-            const newAttachments = prevAttachments.filter(a => a.drive_file_id !== fileId);
-            
-            await updateAgenda(currentLetterId, {
-                ...formData,
-                attachments: newAttachments,
-                attachment_url: newAttachments.length > 0 ? newAttachments[0].attachment_url : null,
-                attachment_name: newAttachments.length > 0 ? newAttachments[0].attachment_name : null,
-                drive_file_id: newAttachments.length > 0 ? newAttachments[0].drive_file_id : null,
-            });
-            
-            setFormData(prev => ({ 
-                ...prev, 
-                attachments: newAttachments,
-                attachment_url: newAttachments.length > 0 ? newAttachments[0].attachment_url : null,
-                attachment_name: newAttachments.length > 0 ? newAttachments[0].attachment_name : null,
-                drive_file_id: newAttachments.length > 0 ? newAttachments[0].drive_file_id : null,
-            }));
-            
-            showToast('Lampiran berhasil dihapus', 'success');
-            fetchLetters();
-        } catch (err) {
-            showToast(`Gagal menghapus lampiran: ${err.message}`, 'error');
-        } finally {
-            setIsUploading(false);
-            setDeleteAttachmentModal({ isOpen: false, fileId: null, fileName: '' });
-        }
-    };
+    // --- Digital Attachment (Link) logic handled directly in state ---
 
     // --- CSV Export ---
     const handleExportCSV = () => {
@@ -480,16 +356,16 @@ const AgendaSurat = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1">
-                                                    {/* Attachment Preview — only shown if file exists */}
-                                                    {(letter.attachment_url || (letter.attachments && letter.attachments.length > 0)) && (
+                                                    {/* Attachment Link Preview */}
+                                                    {(letter.attachment_url) && (
                                                         <a
-                                                            href={letter.attachment_url || (letter.attachments && letter.attachments[0].attachment_url)}
+                                                            href={letter.attachment_url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="p-1.5 hover:bg-teal-500/10 text-[#9795c6] hover:text-teal-400 rounded-lg transition-colors"
-                                                            title={`Lihat Lampiran: ${letter.attachment_name || (letter.attachments && letter.attachments[0].attachment_name) || 'File'}`}
+                                                            title="Buka Tautan Lampiran"
                                                         >
-                                                            <span className="material-symbols-outlined text-[18px]">attach_file</span>
+                                                            <span className="material-symbols-outlined text-[18px]">link</span>
                                                         </a>
                                                     )}
 
@@ -596,87 +472,20 @@ const AgendaSurat = () => {
                                         <textarea rows="2" className="input-field" value={formData.note} onChange={e => setFormData({ ...formData, note: e.target.value })} placeholder="Keterangan tambahan..." />
                                     </div>
 
-                                    {/* Digital Archive Upload Section */}
-                                    <div className="flex flex-col gap-2">
+                                    {/* Digital Archive Link Section */}
+                                    <div className="flex flex-col gap-1.5">
                                         <label className="text-xs font-semibold text-[#9795c6] uppercase flex items-center gap-1.5">
-                                            <span className="material-symbols-outlined text-[14px]">cloud_upload</span>
-                                            Lampiran Digital (Opsional)
+                                            <span className="material-symbols-outlined text-[14px]">link</span>
+                                            Tautan Berkas / Google Drive (Opsional)
                                         </label>
-
-                                        {/* Drag-and-drop zone */}
-                                        <div
-                                            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
-                                            onDragLeave={() => setIsDragOver(false)}
-                                            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files); }}
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
-                                                isDragOver ? 'border-primary bg-primary/10' : 'border-[#272546] hover:border-[#4a4870] hover:bg-[#272546]/30'
-                                            }`}
-                                        >
-                                            <input
-                                                ref={fileInputRef}
-                                                type="file"
-                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                                className="hidden"
-                                                multiple
-                                                onChange={(e) => handleFileChange(e.target.files)}
-                                            />
-                                            {uploadFiles.length > 0 ? (
-                                                <div className="flex flex-col gap-2 w-full">
-                                                    {uploadFiles.map((file, idx) => (
-                                                        <div key={idx} className="flex items-center gap-3 text-sm bg-[#131221] p-2 rounded-lg border border-[#272546]">
-                                                            <span className="material-symbols-outlined text-primary text-[24px]">description</span>
-                                                            <div className="text-left flex-1 min-w-0">
-                                                                <p className="text-white font-medium truncate">{file.name}</p>
-                                                                <p className="text-[#9795c6] text-xs">{(file.size / 1024).toFixed(1)} KB</p>
-                                                            </div>
-                                                            <button type="button" onClick={(e) => { e.stopPropagation(); removeReadyUploadFile(idx); }} className="text-red-400 hover:text-red-300 p-1">
-                                                                <span className="material-symbols-outlined text-[18px]">close</span>
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="text-xs text-primary font-medium hover:underline mt-1">+ Tambah file lain</button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[#4a4870] text-[36px]">cloud_upload</span>
-                                                    <p className="text-[#9795c6] text-xs text-center">Drag & drop atau <span className="text-primary font-semibold">klik untuk memilih</span><br/>PDF, Word, JPG, PNG (maks. 10MB)</p>
-                                                </>
-                                            )}
-                                        </div>
-
-                                        {/* Existing attachments (edit mode) */}
-                                        {modalMode === 'edit' && (formData.attachments?.length > 0 || formData.attachment_url) && (
-                                            <div className="flex flex-col gap-2 mt-2">
-                                                <span className="text-xs font-semibold text-[#9795c6]">Lampiran Tersimpan:</span>
-                                                {(formData.attachments || [{ attachment_url: formData.attachment_url, attachment_name: formData.attachment_name, drive_file_id: formData.drive_file_id }])
-                                                    .filter(a => a && a.attachment_url) 
-                                                    .map((att, idx) => (
-                                                    <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/20 rounded-lg text-xs">
-                                                        <span className="material-symbols-outlined text-teal-400 text-[16px]">attach_file</span>
-                                                        <span className="text-teal-300 truncate flex-1">{att.attachment_name || 'File terlampir'}</span>
-                                                        <a href={att.attachment_url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline font-medium px-2 border-r border-teal-500/30">Lihat</a>
-                                                        <button type="button" onClick={() => setDeleteAttachmentModal({ isOpen: true, fileId: att.drive_file_id, fileName: att.attachment_name })} className="text-red-400 hover:text-red-300 hover:underline font-medium px-1">Hapus</button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Progress Bar */}
-                                        {isUploading && (
-                                            <div className="flex flex-col gap-1">
-                                                <div className="flex justify-between text-xs text-[#9795c6]">
-                                                    <span>Mengunggah ke Google Drive...</span>
-                                                    <span>{uploadProgress}%</span>
-                                                </div>
-                                                <div className="w-full h-2 bg-[#272546] rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-gradient-to-r from-primary to-purple-400 rounded-full transition-all duration-300"
-                                                        style={{ width: `${uploadProgress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
+                                        <input 
+                                            type="url" 
+                                            className="input-field" 
+                                            value={formData.attachment_url || ''} 
+                                            onChange={e => setFormData({ ...formData, attachment_url: e.target.value })} 
+                                            placeholder="https://drive.google.com/..." 
+                                        />
+                                        <p className="text-xs text-[#4a4870]">Masukkan tautan (link) Google Drive tempat file surat disimpan.</p>
                                     </div>
 
                                     <style>{`
@@ -706,11 +515,11 @@ const AgendaSurat = () => {
                                 <button
                                     form="letterForm"
                                     type="submit"
-                                    disabled={isSubmitting || isUploading}
+                                    disabled={isSubmitting}
                                     className="px-6 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {(isSubmitting || isUploading) && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    {isUploading ? 'Mengunggah...' : isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
+                                    {isSubmitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                    {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
                                 </button>
                             )}
                         </div>
