@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Outlet } from 'react-router-dom';
+import { Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
@@ -46,9 +46,9 @@ import { SchoolProvider } from './contexts/SchoolContext';
 
 import { LayoutProvider, useLayout } from './contexts/LayoutContext';
 
-// Layout component for Dashboard pages (with Sidebar and Header)
 const DashboardContent = () => {
     const { isSidebarCollapsed, isMobileSidebarOpen, closeMobileSidebar } = useLayout();
+    const location = useLocation();
 
     return (
         <div className="flex h-screen w-full relative">
@@ -71,8 +71,13 @@ const DashboardContent = () => {
                 {/* Header */}
                 <Header />
 
-                {/* Content Area */}
-                <Outlet />
+                {/* Content Area with Page Load Animation */}
+                <div 
+                    key={location.pathname} 
+                    className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out"
+                >
+                    <Outlet />
+                </div>
             </main>
         </div>
     );

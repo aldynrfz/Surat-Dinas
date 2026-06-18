@@ -405,7 +405,7 @@ export const deleteLetter = async (id) => {
 
 export const getAgendas = async () => {
     try {
-        const q = query(collection(db, COLLECTIONS.AGENDA_SURAT), orderBy('agendaNumber', 'asc'));
+        const q = query(collection(db, COLLECTIONS.AGENDA_SURAT), orderBy('date', 'desc'));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({
             id: doc.id,
