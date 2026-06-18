@@ -8,17 +8,7 @@ const AddEmployee = () => {
         <div className="flex-1 overflow-y-auto p-6 md:p-8 pb-24">
             <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
 
-                {/* Breadcrumbs */}
-                <div className="flex flex-wrap gap-2 items-center text-sm">
-                    <Link to="/" className="text-[#9795c6] hover:text-primary transition-colors flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[18px]">home</span>
-                        Home
-                    </Link>
-                    <span className="text-[#9795c6]/50">/</span>
-                    <Link to="/pegawai" className="text-[#9795c6] hover:text-primary transition-colors">Personnel</Link>
-                    <span className="text-[#9795c6]/50">/</span>
-                    <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-md font-medium">Registration</span>
-                </div>
+
 
                 {/* Page Header */}
                 <div className="flex flex-col gap-2">

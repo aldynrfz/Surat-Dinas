@@ -248,17 +248,7 @@ const EditStudyGroup = () => {
             <div className={`flex-1 overflow-y-auto p-6 md:p-8 transition-all duration-300 ${isModalOpen ? 'blur-sm brightness-50 pointer-events-none select-none' : ''}`}>
                 <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
 
-                    {/* Breadcrumbs */}
-                    <div className="flex flex-wrap gap-2 items-center text-sm">
-                        <Link to="/" className="text-[#9795c6] hover:text-primary transition-colors flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[18px]">home</span>
-                            Dashboard
-                        </Link>
-                        <span className="text-[#9795c6]/50">/</span>
-                        <Link to="/rombel" className="text-[#9795c6] hover:text-primary transition-colors">Rombongan Belajar</Link>
-                        <span className="text-[#9795c6]/50">/</span>
-                        <span className="text-primary bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20 font-semibold">Edit {formData.name}</span>
-                    </div>
+
 
                     {/* Header */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">

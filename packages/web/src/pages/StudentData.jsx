@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { getAllStudents, addStudent, updateStudent, deleteStudent, addStudentsBatch } from '../services/dataService';
 import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
+import Flatpickr from 'react-flatpickr';
+import { Indonesian } from 'flatpickr/dist/l10n/id.js';
+import 'flatpickr/dist/themes/dark.css';
+import * as XLSX from 'xlsx';
 
 const StudentData = () => {
     const navigate = useNavigate();
@@ -17,6 +21,11 @@ const StudentData = () => {
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
+
+    // Upload Modal State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState('add'); // 'add', 'edit', 'detail'
@@ -125,59 +134,176 @@ const StudentData = () => {
         }
     };
 
-    // --- CSV Import/Export ---
+    // --- Upload Excel Data ---
 
-    const handleExportCSV = () => {
-        const headers = Object.keys(initialFormState).join(',');
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + headers + "\n"
-            + students.map(s => Object.keys(initialFormState).map(k => `"${s[k] || ''}"`).join(',')).join("\n");
+    const handleDownloadTemplate = () => {
+        // Data yang sudah ada (untuk mencegah duplikasi / sebagai acuan format)
+        const currentData = students.map((s) => ({
+            'Nama Lengkap': s.name || '',
+            'NIS': s.nis || '',
+            'NISN': s.nisn || '',
+            'Jenis Kelamin': s.gender || 'L',
+            'Tempat Lahir': s.placeOfBirth || '',
+            'Tanggal Lahir': s.dateOfBirth || '',
+            'Nama Orang Tua': s.parentName || '',
+            'Pekerjaan Orang Tua': s.parentJob || '',
+            'Jalan': s.address || '',
+            'RT': s.rt || '',
+            'RW': s.rw || '',
+            'Desa/Kelurahan': s.village || '',
+            'Kecamatan': s.district || '',
+            'Kota/Kabupaten': s.city || '',
+            'Provinsi': s.province || '',
+            'Kode Pos': s.postalCode || ''
+        }));
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "data_siswa.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Jika kosong, sediakan 1 baris contoh
+        const wsData = currentData.length > 0 ? currentData : [{
+            'Nama Lengkap': 'John Doe',
+            'NIS': '123456',
+            'NISN': '0012345678',
+            'Jenis Kelamin': 'L',
+            'Tempat Lahir': 'Jakarta',
+            'Tanggal Lahir': '2005-01-01',
+            'Nama Orang Tua': 'Doe Senior',
+            'Pekerjaan Orang Tua': 'Wiraswasta',
+            'Jalan': 'Jl. Merdeka No. 1',
+            'RT': '01',
+            'RW': '02',
+            'Desa/Kelurahan': 'Merdeka',
+            'Kecamatan': 'Pusat',
+            'Kota/Kabupaten': 'Jakarta Pusat',
+            'Provinsi': 'DKI Jakarta',
+            'Kode Pos': '10110'
+        }];
+
+        const ws = XLSX.utils.json_to_sheet(wsData);
+
+        // Styling dan lebar kolom
+        const colWidths = [
+            { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
+            { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 20 },
+            { wch: 30 }, { wch: 5 }, { wch: 5 }, { wch: 15 },
+            { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 10 }
+        ];
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Data_Siswa");
+
+        XLSX.writeFile(wb, "Template_Data_Siswa.xlsx");
     };
 
-    const handleImportCSV = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    const handleDrag = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
 
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-            const text = evt.target.result;
-            const lines = text.split('\n').filter(l => l.trim());
-            if (lines.length < 2) return;
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            setSelectedFile(e.dataTransfer.files[0]);
+        }
+    };
 
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-            const data = lines.slice(1).map(line => {
-                const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, '')); // Simple parser
-                const obj = {};
-                headers.forEach((h, i) => {
-                    if (Object.keys(initialFormState).includes(h)) {
-                        obj[h] = values[i] || '';
-                    }
-                });
-                return obj;
-            });
+    const handleFileChange = (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setSelectedFile(e.target.files[0]);
+        }
+    };
 
-            if (confirm(`Akan mengimpor ${data.length} data siswa. Lanjutkan?`)) {
-                setLoading(true);
+    const parseExcelDate = (excelDate) => {
+        if (!excelDate) return '';
+        if (typeof excelDate === 'string') return excelDate;
+        // Konversi serial Excel ke Date JS
+        const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+        return date.toISOString().split('T')[0];
+    };
+
+    const processFile = async (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
                 try {
-                    await addStudentsBatch(data);
-                    fetchStudents();
-                    showToast(`Berhasil mengimpor ${data.length} siswa`, "success");
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+                    if (jsonData.length === 0) {
+                        throw new Error('File Excel kosong atau format tidak sesuai.');
+                    }
+
+                    // Pemetaan NIS untuk deduplikasi
+                    const existingByNis = {};
+                    students.forEach(s => {
+                        if (s.nis) existingByNis[s.nis.toString()] = s;
+                    });
+
+                    let addedCount = 0;
+                    let updatedCount = 0;
+
+                    for (const row of jsonData) {
+                        const nisStr = row['NIS'] ? row['NIS'].toString() : '';
+                        if (!nisStr) continue; // Skip jika tidak ada NIS
+
+                        const studentData = {
+                            name: row['Nama Lengkap'] || '',
+                            nis: nisStr,
+                            nisn: row['NISN'] ? row['NISN'].toString() : '',
+                            gender: (row['Jenis Kelamin'] && row['Jenis Kelamin'].toUpperCase() === 'P') ? 'P' : 'L',
+                            placeOfBirth: row['Tempat Lahir'] || '',
+                            dateOfBirth: parseExcelDate(row['Tanggal Lahir']),
+                            parentName: row['Nama Orang Tua'] || '',
+                            parentJob: row['Pekerjaan Orang Tua'] || '',
+                            address: row['Jalan'] || '',
+                            rt: row['RT'] ? row['RT'].toString() : '',
+                            rw: row['RW'] ? row['RW'].toString() : '',
+                            village: row['Desa/Kelurahan'] || '',
+                            district: row['Kecamatan'] || '',
+                            city: row['Kota/Kabupaten'] || '',
+                            province: row['Provinsi'] || '',
+                            postalCode: row['Kode Pos'] ? row['Kode Pos'].toString() : ''
+                        };
+
+                        const existing = existingByNis[nisStr];
+
+                        if (existing) {
+                            await updateStudent(existing.id, studentData);
+                            updatedCount++;
+                        } else {
+                            await addStudent(studentData);
+                            addedCount++;
+                        }
+                    }
+
+                    resolve({ added: addedCount, updated: updatedCount });
                 } catch (error) {
-                    showToast("Gagal mengimpor data: " + error.message, "error");
-                } finally {
-                    setLoading(false);
+                    reject(error);
                 }
-            }
-        };
-        reader.readAsText(file);
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsArrayBuffer(file);
+        });
+    };
+
+    const handleUploadSubmit = async () => {
+        if (!selectedFile) return;
+
+        setIsUploading(true);
+        try {
+            const result = await processFile(selectedFile);
+            showToast(`${result.added} ditambahkan, ${result.updated} diperbarui`, "success");
+            fetchStudents();
+            setIsUploadModalOpen(false);
+            setSelectedFile(null);
+        } catch (error) {
+            showToast(`Gagal mengimpor file: ${error.message}`, "error");
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     // --- Filtering & Pagination ---
@@ -218,8 +344,8 @@ const StudentData = () => {
 
                 {/* Header */}
                 <div className="flex flex-col gap-4">
-                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Student Data</h1>
-                    <p className="text-[#9795c6]">Manage student records, detailed profiles, and enrollment.</p>
+                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">Data Siswa</h1>
+                    <p className="text-[#9795c6]">Kelola catatan siswa, profil lengkap, dan pendaftaran.</p>
                 </div>
 
                 {/* Toolbar */}
@@ -231,7 +357,7 @@ const StudentData = () => {
                                 <span className="absolute left-3 top-2.5 text-[#9795c6] material-symbols-outlined">search</span>
                                 <input
                                     className="w-full pl-10 pr-3 py-2 bg-[#1c1b2e] border border-[#272546] rounded-xl text-white focus:ring-1 focus:ring-primary focus:outline-none"
-                                    placeholder="Search Name/NIS..."
+                                    placeholder="Cari Nama/NIS..."
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
@@ -248,15 +374,10 @@ const StudentData = () => {
 
                         {/* Actions */}
                         <div className="flex gap-2 w-full xl:w-auto overflow-x-auto pb-1 xl:pb-0">
-                            <button onClick={handleExportCSV} className="flex items-center gap-2 px-4 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-colors whitespace-nowrap">
-                                <span className="material-symbols-outlined text-[20px]">download</span>
-                                <span className="text-sm font-semibold">Export CSV</span>
-                            </button>
-                            <label className="flex items-center gap-2 px-4 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-colors cursor-pointer whitespace-nowrap">
+                            <button onClick={() => setIsUploadModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-colors whitespace-nowrap">
                                 <span className="material-symbols-outlined text-[20px]">upload</span>
-                                <span className="text-sm font-semibold">Import CSV</span>
-                                <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
-                            </label>
+                                <span className="text-sm font-semibold">Upload Data</span>
+                            </button>
                             <button onClick={() => handleOpenModal('add')} className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/25 transition-all whitespace-nowrap">
                                 <span className="material-symbols-outlined text-[20px]">add</span>
                                 <span className="text-sm font-bold">Tambah Siswa</span>
@@ -473,7 +594,26 @@ const StudentData = () => {
                                             </div>
                                             <div className="flex flex-col gap-1.5">
                                                 <label className="text-xs text-[#9795c6] font-semibold">Tanggal Lahir</label>
-                                                <input type="date" className="input-field" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })} />
+                                                <Flatpickr
+                                                    className="input-field"
+                                                    value={formData.dateOfBirth}
+                                                    onChange={(date) => {
+                                                        if (date.length > 0) {
+                                                            const d = date[0];
+                                                            const year = d.getFullYear();
+                                                            const month = String(d.getMonth() + 1).padStart(2, '0');
+                                                            const day = String(d.getDate()).padStart(2, '0');
+                                                            setFormData({ ...formData, dateOfBirth: `${year}-${month}-${day}` });
+                                                        }
+                                                    }}
+                                                    options={{
+                                                        dateFormat: "Y-m-d",
+                                                        locale: Indonesian,
+                                                        altInput: true,
+                                                        altFormat: "d F Y"
+                                                    }}
+                                                    placeholder="Pilih Tanggal"
+                                                />
                                             </div>
 
                                         </div>
@@ -563,6 +703,96 @@ const StudentData = () => {
                                     {isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Upload Modal */}
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-[#1c1b2e] border border-[#272546] rounded-2xl w-full max-w-lg shadow-2xl flex flex-col animate-in zoom-in-95 fade-in duration-200">
+                        <div className="px-6 py-4 border-b border-[#272546] flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-white">Upload Data Siswa</h3>
+                            <button onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); }} className="text-[#9795c6] hover:text-white transition-colors">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 flex flex-col gap-6">
+                            {/* Download Template Section */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-sm font-semibold text-[#9795c6]">1. Unduh Template</h4>
+                                <div className="bg-[#272546]/30 border border-[#272546] rounded-xl p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-green-500 text-3xl">description</span>
+                                        <div>
+                                            <p className="text-white text-sm font-semibold">Template_Data_Siswa.xlsx</p>
+                                            <p className="text-[#9795c6] text-xs">Berisi struktur kolom dan data yang sudah ada.</p>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={handleDownloadTemplate}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-[#272546] hover:bg-[#323055] text-white rounded-lg transition-colors text-sm font-medium"
+                                    >
+                                        <span className="material-symbols-outlined text-[18px]">download</span>
+                                        Unduh
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Upload Section */}
+                            <div className="flex flex-col gap-3">
+                                <h4 className="text-sm font-semibold text-[#9795c6]">2. Upload File Excel</h4>
+                                <label 
+                                    className={`relative flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                                        selectedFile 
+                                            ? 'border-primary bg-primary/5' 
+                                            : 'border-[#3b3955] bg-[#131221] hover:bg-[#272546]/50 hover:border-[#6366f1]'
+                                    }`}
+                                    onDragOver={handleDrag}
+                                    onDrop={handleDrop}
+                                >
+                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                        {selectedFile ? (
+                                            <>
+                                                <span className="material-symbols-outlined text-4xl text-primary mb-2">task</span>
+                                                <p className="mb-1 text-sm text-white font-semibold">{selectedFile.name}</p>
+                                                <p className="text-xs text-[#9795c6]">{(selectedFile.size / 1024).toFixed(1)} KB</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="material-symbols-outlined text-4xl text-[#9795c6] mb-2">upload_file</span>
+                                                <p className="mb-1 text-sm text-[#9795c6]"><span className="font-semibold text-primary">Klik untuk upload</span> atau seret & lepas</p>
+                                                <p className="text-xs text-[#686687]">Hanya file .xlsx</p>
+                                            </>
+                                        )}
+                                    </div>
+                                    <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileChange} />
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-[#272546] flex justify-end gap-3 bg-[#1c1b2e] rounded-b-2xl">
+                            <button 
+                                type="button" 
+                                onClick={() => { setIsUploadModalOpen(false); setSelectedFile(null); }} 
+                                className="px-4 py-2 rounded-xl text-[#9795c6] hover:bg-[#272546] transition-colors font-semibold text-sm"
+                            >
+                                Batal
+                            </button>
+                            <button 
+                                onClick={handleUploadSubmit} 
+                                disabled={!selectedFile || isUploading} 
+                                className="flex items-center gap-2 px-6 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all font-semibold text-sm disabled:opacity-50"
+                            >
+                                {isUploading ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                        Memproses...
+                                    </>
+                                ) : 'Simpan Data'}
+                            </button>
                         </div>
                     </div>
                 </div>

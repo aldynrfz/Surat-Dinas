@@ -121,10 +121,10 @@ function App() {
                     <Route path="/keuangan/bmn/tambah" element={<AddBMN />} />
                     <Route path="/keuangan/bmn/edit/:id" element={<EditBMN />} />
                     <Route path="/keuangan/bmn/peminjaman" element={<BmnBorrowingHistory />} />
-                    <Route path="/keuangan/perpus" element={<LibraryBookData />} />
-                    <Route path="/keuangan/perpus/tambah" element={<AddLibraryBook />} />
-                    <Route path="/keuangan/perpus/edit/:id" element={<EditLibraryBook />} />
-                    <Route path="/keuangan/perpus/peminjaman" element={<LibraryBorrowingHistory />} />
+                    <Route path="/perpustakaan/buku" element={<LibraryBookData />} />
+                    <Route path="/perpustakaan/tambah-buku" element={<AddLibraryBook />} />
+                    <Route path="/perpustakaan/edit-buku/:id" element={<EditLibraryBook />} />
+                    <Route path="/perpustakaan/peminjaman" element={<LibraryBorrowingHistory />} />
                     <Route path="/pengaturan" element={<SchoolProfile />} />
                     <Route path="/layanan-surat/keterangan-aktif" element={<ActiveStudentLetter />} />
                     <Route path="/layanan-surat/mutasi-masuk" element={<IncomingTransferLetter />} />

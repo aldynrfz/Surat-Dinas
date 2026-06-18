@@ -16,14 +16,16 @@ import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
 
 // --- Helper Functions ---
-const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    try {
-        const options = { day: 'numeric', month: 'long', year: 'numeric' };
-        return new Date(dateStr).toLocaleDateString('id-ID', options);
-    } catch {
-        return dateStr;
-    }
+export const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+export const formatPenulis = (penulis) => {
+    if (!penulis) return '';
+    const parts = penulis.split(',').map(p => p.trim());
+    return parts.length > 1 ? `${parts[0]} lainnya` : parts[0];
 };
 
 const CATEGORY_COLORS = {
@@ -199,9 +201,9 @@ const AddBorrowingModal = ({ isOpen, onClose, onSave, bookList, borrowers }) => 
                             <ul className="absolute z-10 w-full mt-1 bg-[#272546] border border-white/10 rounded-xl shadow-lg max-h-48 overflow-y-auto">
                                 {filteredLibrarys.map(buku => (
                                     <li key={buku.id} onClick={() => handleSelectLibrary(buku)} className="px-4 py-2 hover:bg-white/5 cursor-pointer text-sm text-slate-200 flex flex-col">
-                                        <span className="font-medium">{buku.judul_buku} {buku.penulis ? `(${buku.penulis})` : ''}</span>
+                                        <span className="font-medium">{buku.judul_buku} {buku.penulis ? `(${formatPenulis(buku.penulis)})` : ''}</span>
                                         <span className="text-xs text-slate-400">
-                                            Kode: {buku.kode_buku} | Kategori: {buku.kategori}
+                                            Kode: {buku.kode_buku} | Kategori: {buku.kategori || buku.jenis || '-'}
                                             {buku.jenis === 'Buku Paket Mapel' && buku.peruntukan ? ` (${buku.peruntukan})` : ''} | Tahun: {buku.tahun || '-'}
                                         </span>
                                     </li>
@@ -229,7 +231,7 @@ const AddBorrowingModal = ({ isOpen, onClose, onSave, bookList, borrowers }) => 
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm text-white font-medium truncate">{buku.judul_buku}</p>
                                             <p className="text-xs text-slate-400 truncate">
-                                                {buku.kode_buku} • {buku.penulis || '-'} 
+                                                {buku.kode_buku} • {formatPenulis(buku.penulis) || '-'} • {buku.kategori || buku.jenis || '-'}
                                                 {buku.jenis === 'Buku Paket Mapel' && buku.peruntukan ? ` • ${buku.peruntukan}` : ''}
                                             </p>
                                         </div>
@@ -300,7 +302,7 @@ const ReturnModal = ({ isOpen, onClose, onConfirm, item }) => {
                 </p>
                 <div className="bg-white/5 rounded-lg p-3 mb-4 max-h-32 overflow-y-auto space-y-1.5">
                     {books.map((b, i) => (
-                        <p key={i} className="text-sm text-slate-300"><span className="text-slate-500">{i+1}.</span> {b.judul_buku}</p>
+                        <p key={i} className="text-sm text-slate-300"><span className="text-slate-500">{i + 1}.</span> {b.judul_buku}</p>
                     ))}
                 </div>
                 <div className="mb-6">
@@ -364,12 +366,12 @@ const PreviewModal = ({ isOpen, onClose, item }) => {
                                 {books.map((b, i) => (
                                     <div key={i} className="bg-white/5 p-3 rounded-lg text-sm text-slate-300">
                                         <div className="flex items-start gap-2">
-                                            <span className="text-xs text-slate-500 mt-0.5">{i+1}.</span>
+                                            <span className="text-xs text-slate-500 mt-0.5">{i + 1}.</span>
                                             <div className="flex-1">
                                                 <p className="text-white font-medium">{b.judul_buku}</p>
                                                 <p><span className="text-slate-500">Kode:</span> {b.kode_buku}</p>
-                                                <p><span className="text-slate-500">Penulis:</span> {b.penulis || '-'}</p>
-                                                <p><span className="text-slate-500">Kategori:</span> {b.kategori || '-'}</p>
+                                                <p><span className="text-slate-500">Penulis:</span> {formatPenulis(b.penulis) || '-'}</p>
+                                                <p><span className="text-slate-500">Kategori:</span> {b.kategori || b.jenis || '-'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -637,15 +639,9 @@ const LibraryBorrowingHistory = () => {
 
                 {/* Breadcrumb */}
                 <div className="flex flex-col gap-3">
-                    <nav className="flex text-sm text-slate-400">
-                        <Link to="/keuangan" className="hover:text-indigo-400 transition-colors">Keuangan</Link>
-                        <span className="mx-2">/</span>
-                        <Link to="/keuangan/perpus" className="hover:text-indigo-400 transition-colors">Buku Perpustakaan</Link>
-                        <span className="mx-2">/</span>
-                        <span className="text-white">Peminjaman</span>
-                    </nav>
+
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Riwayat Peminjaman buku Perpustakaan</h1>
+                        <h1 className="text-3xl font-bold text-white">Peminjaman</h1>
                         <p className="text-slate-400 mt-1">Kelola daftar peminjaman dan pengembalian buku</p>
                     </div>
                 </div>
@@ -728,7 +724,7 @@ const LibraryBorrowingHistory = () => {
                                                 </td>
                                                 <td className="p-4">
                                                     <p className="text-white font-medium">{firstBook.judul_buku || '-'}</p>
-                                                    <p className="text-xs text-slate-400">{firstBook.kode_buku || ''} {firstBook.penulis ? `• ${firstBook.penulis}` : ''}</p>
+                                                    <p className="text-xs text-slate-400">{firstBook.kode_buku || ''} {firstBook.penulis ? `• ${formatPenulis(firstBook.penulis)}` : ''} • {firstBook.kategori || firstBook.jenis || '-'}</p>
                                                     {books.length > 1 && (
                                                         <p className="text-xs text-indigo-400 mt-0.5">+{books.length - 1} buku lainnya</p>
                                                     )}

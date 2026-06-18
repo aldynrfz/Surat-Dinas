@@ -109,15 +109,7 @@ const StudyGroupData = () => {
         <div className="flex-1 overflow-y-auto p-6 md:p-8 relative">
             <div className={`max-w-[1400px] mx-auto flex flex-col gap-6 ${isModalOpen ? 'blur-[2px]' : ''}`}>
 
-                {/* Breadcrumbs */}
-                <div className="flex flex-wrap gap-2 items-center text-sm">
-                    <Link to="/" className="text-[#9795c6] hover:text-primary transition-colors flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[18px]">home</span>
-                        Dashboard
-                    </Link>
-                    <span className="text-[#9795c6]/50">/</span>
-                    <span className="text-primary bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20 font-semibold">Rombongan Belajar</span>
-                </div>
+
 
                 {/* Page Header */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

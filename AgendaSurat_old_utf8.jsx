@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { getAgendas, addAgenda, updateAgenda, deleteAgenda } from '../services/dataService';
 import Toast from '../components/Toast';
 import ConfirmationModal from '../components/ConfirmationModal';
-import Flatpickr from 'react-flatpickr';
-import 'flatpickr/dist/themes/dark.css';
 import * as XLSX from 'xlsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -31,27 +29,13 @@ const AgendaSurat = () => {
     // Delete Modal State
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, letterId: null, letterTitle: '' });
 
-    // Upload Modal State
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [isDragging, setIsDragging] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [selectedFile, setSelectedFile] = useState(null);
-    const fileInputRef = useRef(null);
-
-    // File Upload State (Digital Archive)
-    const [uploadFiles, setUploadFiles] = useState([]);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [isUploadingArchive, setIsUploadingArchive] = useState(false);
-    const [isDragOver, setIsDragOver] = useState(false);
-    const [deleteAttachmentModal, setDeleteAttachmentModal] = useState({ isOpen: false, fileId: null, fileName: '' });
-    const fileInputRefUpload = useRef(null);
-
     // Toast State
     const [toast, setToast] = useState(null);
 
     // Form Data State
     const initialFormState = {
         type: 'incoming', // incoming, outgoing
+        agendaNumber: '',
         referenceNumber: '', // No Surat
         date: new Date().toISOString().split('T')[0], // Tanggal Surat
         receivedDate: new Date().toISOString().split('T')[0], // Tanggal Terima (Incoming only)
@@ -61,11 +45,18 @@ const AgendaSurat = () => {
         recipient: '', // Kepada (Incoming/Outgoing)
         classificationCode: '',
         note: '',
-        status: 'Archived', // Archived
-        attachment_url: '' // Add this
+        status: 'Archived' // Archived
     };
     const [formData, setFormData] = useState(initialFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // File Upload State (Digital Archive)
+    const [uploadFiles, setUploadFiles] = useState([]);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
+    const [deleteAttachmentModal, setDeleteAttachmentModal] = useState({ isOpen: false, fileId: null, fileName: '' });
+    const fileInputRef = useRef(null);
 
     // --- Effects ---
     useEffect(() => {
@@ -115,6 +106,72 @@ const AgendaSurat = () => {
         setFormData(initialFormState);
         setUploadFiles([]);
         setUploadProgress(0);
+    };
+
+    // --- File Upload Helpers ---
+    const handleFileChange = (files) => {
+        if (!files || files.length === 0) return;
+        const allowed = ['application/pdf', 'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg', 'image/png'];
+        
+        const validFiles = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (!allowed.includes(file.type)) {
+                showToast(`Format file ${file.name} tidak didukung.`, 'error');
+            } else if (file.size > 10 * 1024 * 1024) {
+                showToast(`Ukuran file ${file.name} maksimal 10MB.`, 'error');
+            } else {
+                validFiles.push(file);
+            }
+        }
+        
+        if (validFiles.length > 0) {
+            setUploadFiles(prev => [...prev, ...validFiles]);
+        }
+    };
+
+    const removeReadyUploadFile = (index) => {
+        setUploadFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const uploadFilesToDrive = async (agendaId) => {
+        if (uploadFiles.length === 0) return null;
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        return new Promise((resolve, reject) => {
+            const formPayload = new FormData();
+            uploadFiles.forEach(file => formPayload.append('files', file));
+            if (agendaId) formPayload.append('agendaId', agendaId);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `${API_URL}/api/drive/upload`);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    setUploadProgress(Math.round((e.loaded / e.total) * 100));
+                }
+            };
+
+            xhr.onload = () => {
+                setIsUploading(false);
+                if (xhr.status === 200) {
+                    const data = JSON.parse(xhr.responseText);
+                    resolve(data.data);
+                } else {
+                    reject(new Error('Upload gagal'));
+                }
+            };
+
+            xhr.onerror = () => {
+                setIsUploading(false);
+                reject(new Error('Koneksi gagal saat upload'));
+            };
+
+            xhr.send(formPayload);
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -172,74 +229,9 @@ const AgendaSurat = () => {
         }
     };
 
-    // --- File Upload Helpers (Digital Archive) ---
-    const handleFileChange = (files) => {
-        if (!files || files.length === 0) return;
-        const allowed = ['application/pdf', 'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/jpeg', 'image/png'];
-        
-        const validFiles = [];
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            if (!allowed.includes(file.type)) {
-                showToast(`Format file ${file.name} tidak didukung.`, 'error');
-            } else if (file.size > 10 * 1024 * 1024) {
-                showToast(`Ukuran file ${file.name} maksimal 10MB.`, 'error');
-            } else {
-                validFiles.push(file);
-            }
-        }
-        
-        if (validFiles.length > 0) {
-            setUploadFiles(prev => [...prev, ...validFiles]);
-        }
-    };
-
-    const removeReadyUploadFile = (index) => {
-        setUploadFiles(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const uploadFilesToDrive = async (agendaId) => {
-        if (uploadFiles.length === 0) return null;
-        setIsUploadingArchive(true);
-        setUploadProgress(0);
-
-        return new Promise((resolve, reject) => {
-            const formPayload = new FormData();
-            if (agendaId) formPayload.append('agendaId', agendaId);
-            uploadFiles.forEach(file => formPayload.append('files', file));
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', `${API_URL}/api/drive/upload`);
-
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    setUploadProgress(Math.round((e.loaded / e.total) * 100));
-                }
-            };
-
-            xhr.onload = () => {
-                setIsUploadingArchive(false);
-                if (xhr.status === 200) {
-                    const data = JSON.parse(xhr.responseText);
-                    resolve(data.data);
-                } else {
-                    reject(new Error('Upload gagal'));
-                }
-            };
-
-            xhr.onerror = () => {
-                setIsUploadingArchive(false);
-                reject(new Error('Koneksi gagal saat upload'));
-            };
-
-            xhr.send(formPayload);
-        });
-    };
-
+    // --- Delete Existing Attachment logic ---
     const handleConfirmDeleteAttachment = async () => {
-        setIsUploadingArchive(true);
+        setIsUploading(true);
         try {
             const { fileId } = deleteAttachmentModal;
             const res = await fetch(`${API_URL}/api/drive/${fileId}`, { method: 'DELETE' });
@@ -271,205 +263,95 @@ const AgendaSurat = () => {
         } catch (err) {
             showToast(`Gagal menghapus lampiran: ${err.message}`, 'error');
         } finally {
-            setIsUploadingArchive(false);
+            setIsUploading(false);
             setDeleteAttachmentModal({ isOpen: false, fileId: null, fileName: '' });
         }
     };
 
-    // --- Upload Functions ---
-    const parseExcelDate = (val) => {
-        if (!val) return new Date().toISOString().split('T')[0];
-        if (typeof val === 'number') {
-            const dateObj = new Date((val - (25567 + 2)) * 86400 * 1000);
-            return dateObj.toISOString().split('T')[0];
-        }
-        return val.toString();
+    // --- CSV Export ---
+    const handleExportCSV = () => {
+        const headers = ["Agenda", "No. Surat", "Tanggal", "Jenis", "Pengirim", "Penerima", "Perihal", "Klasifikasi", "Keterangan"];
+        const csvContent = "data:text/csv;charset=utf-8,"
+            + headers.join(",") + "\n"
+            + filteredData.map(l => {
+                return [
+                    `"${l.agendaNumber || ''}"`,
+                    `"${l.referenceNumber || ''}"`,
+                    `"${l.date || ''}"`,
+                    `"${l.type === 'incoming' ? 'Masuk' : 'Keluar'}"`,
+                    `"${l.sender || ''}"`,
+                    `"${l.recipient || ''}"`,
+                    `"${l.subject || ''}"`,
+                    `"${l.classificationCode || ''}"`,
+                    `"${l.note || ''}"`
+                ].join(",");
+            }).join("\n");
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `agenda_surat_${filterTab}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
-    const handleDownloadTemplate = async (type) => {
-        const isIncoming = type === 'incoming';
-        const sheetName = isIncoming ? 'Surat_Masuk' : 'Surat_Keluar';
-        const fileName = isIncoming ? 'Template_Surat_Masuk.xlsx' : 'Template_Surat_Keluar.xlsx';
-
-        const headers = isIncoming
-            ? ["No. Surat", "Tanggal Surat", "Tanggal Terima", "Pengirim", "Perihal", "Klasifikasi", "Keterangan"]
-            : ["No. Surat", "Tanggal Surat", "Tanggal Kirim", "Penerima", "Perihal", "Klasifikasi", "Keterangan"];
-
-        // Fetch existing data and populate
-        const existingData = letters.filter(l => l.type === type);
-        const rows = [headers];
-
-        existingData.forEach(l => {
-            if (isIncoming) {
-                rows.push([
-                    l.referenceNumber || '',
-                    l.date || '',
-                    l.receivedDate || '',
-                    l.sender || '',
-                    l.subject || '',
-                    l.classificationCode || '',
-                    l.note || ''
-                ]);
-            } else {
-                rows.push([
-                    l.referenceNumber || '',
-                    l.date || '',
-                    l.sentDate || '',
-                    l.recipient || '',
-                    l.subject || '',
-                    l.classificationCode || '',
-                    l.note || ''
-                ]);
-            }
-        });
-
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols'] = [{wch:22},{wch:15},{wch:15},{wch:22},{wch:32},{wch:15},{wch:25}];
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        XLSX.writeFile(wb, fileName);
-    };
-
-    const processFile = async () => {
-        if (!selectedFile) return;
-        setIsUploading(true);
+    // --- CSV Import ---
+    const handleImportCSV = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
+        reader.onload = async (event) => {
+            const text = event.target.result;
+            const rows = text.split('\n').slice(1); // Skip header
 
-                // Detect type from sheet name
-                const isIncoming = firstSheetName.toLowerCase().includes('masuk');
-                const type = isIncoming ? 'incoming' : 'outgoing';
+            let successCount = 0;
+            let errorCount = 0;
 
-                const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false });
+            for (const row of rows) {
+                if (!row.trim()) continue;
 
-                if (rows.length < 2) {
-                    showToast("File kosong atau tidak ada data.", "error");
-                    setIsUploading(false);
-                    return;
+                // Simple CSV parser (doesn't handle commas within quotes perfectly, but sufficient for simple data)
+                // For robust parsing, we should use a library like PapaParse
+                const cols = row.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+
+                if (cols.length < 5) continue;
+
+                const newAgenda = {
+                    agendaNumber: cols[0] || '',
+                    referenceNumber: cols[1] || '',
+                    date: cols[2] || new Date().toISOString().split('T')[0],
+                    type: cols[3]?.toLowerCase() === 'keluar' ? 'outgoing' : 'incoming',
+                    sender: cols[4] || '',
+                    recipient: cols[5] || '',
+                    subject: cols[6] || '',
+                    classificationCode: cols[7] || '',
+                    note: cols[8] || '',
+                    status: 'Archived'
+                };
+
+                try {
+                    await addAgenda(newAgenda);
+                    successCount++;
+                } catch (err) {
+                    console.error("Error importing row:", row, err);
+                    errorCount++;
                 }
-
-                // Build a map of existing data by referenceNumber for deduplication
-                const existingByRef = {};
-                letters.filter(l => l.type === type).forEach(l => {
-                    if (l.referenceNumber) existingByRef[l.referenceNumber] = l;
-                });
-
-                const dataRows = rows.slice(1);
-                let addedCount = 0;
-                let updatedCount = 0;
-                let errorCount = 0;
-
-                for (const cols of dataRows) {
-                    if (!cols || cols.length === 0) continue;
-
-                    const refNum = (cols[0] || '').toString().trim();
-                    if (!refNum) continue;
-
-                    const dateStr = parseExcelDate(cols[1]);
-                    const secondDateStr = parseExcelDate(cols[2]);
-
-                    const agendaData = {
-                        referenceNumber: refNum,
-                        date: dateStr,
-                        type: type,
-                        ...(isIncoming
-                            ? { receivedDate: secondDateStr, sender: (cols[3] || '').toString() }
-                            : { sentDate: secondDateStr, recipient: (cols[3] || '').toString() }
-                        ),
-                        subject: (cols[4] || '').toString(),
-                        classificationCode: (cols[5] || '').toString(),
-                        note: (cols[6] || '').toString(),
-                        status: 'Archived'
-                    };
-
-                    try {
-                        const existing = existingByRef[refNum];
-                        if (existing) {
-                            // Update existing record
-                            await updateAgenda(existing.id, agendaData);
-                            updatedCount++;
-                        } else {
-                            // Add new record
-                            await addAgenda(agendaData);
-                            addedCount++;
-                        }
-                    } catch (err) {
-                        console.error("Error importing row:", cols, err);
-                        errorCount++;
-                    }
-                }
-
-                const parts = [];
-                if (addedCount > 0) parts.push(`${addedCount} ditambahkan`);
-                if (updatedCount > 0) parts.push(`${updatedCount} diperbarui`);
-                if (errorCount > 0) parts.push(`${errorCount} gagal`);
-                showToast(`Upload selesai: ${parts.join(', ')}`, errorCount === 0 ? 'success' : 'error');
-
-                fetchLetters();
-                setSelectedFile(null);
-                setIsUploadModalOpen(false);
-            } catch (error) {
-                console.error("Error reading file:", error);
-                showToast("Terjadi kesalahan saat membaca file Excel.", "error");
-            } finally {
-                setIsUploading(false);
-                if (fileInputRef.current) fileInputRef.current.value = '';
             }
+
+            fetchLetters();
+            showToast(`Import selesai: ${successCount} berhasil, ${errorCount} gagal`, successCount > 0 ? "success" : "error");
         };
-
-        reader.readAsArrayBuffer(selectedFile);
+        reader.readAsText(file);
+        e.target.value = ''; // Reset input
     };
 
-    const handleFileSelect = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
-                setSelectedFile(file);
-            } else {
-                showToast("Harap upload file Excel (.xlsx, .xls) atau .csv", "error");
-            }
-        }
-    };
-
-    const handleDragOver = (e) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
-
-    const handleDragLeave = (e) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
-
-    const handleDrop = (e) => {
-        e.preventDefault();
-        setIsDragging(false);
-        const file = e.dataTransfer.files[0];
-        if (file) {
-            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv')) {
-                setSelectedFile(file);
-            } else {
-                showToast("Harap upload file Excel (.xlsx, .xls) atau .csv", "error");
-            }
-        }
-    };
-
-    const closeUploadModal = () => {
-        if (isUploading) return;
-        setIsUploadModalOpen(false);
-        setSelectedFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    };
 
     // --- Filtering & Pagination ---
     const filteredData = letters.filter(letter => {
         const matchesSearch = (letter.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            letter.agendaNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             letter.referenceNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             letter.sender?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             letter.recipient?.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -496,15 +378,6 @@ const AgendaSurat = () => {
                 onClose={() => setDeleteModal({ ...deleteModal, isOpen: false })}
                 onConfirm={handleConfirmDelete}
                 isLoading={isSubmitting}
-            />
-
-            <ConfirmationModal
-                isOpen={deleteAttachmentModal.isOpen}
-                title="Hapus Lampiran"
-                message={`Apakah Anda yakin ingin menghapus lampiran "${deleteAttachmentModal.fileName}"? Ini akan menghapusnya dari Google Drive.`}
-                onClose={() => setDeleteAttachmentModal({ ...deleteAttachmentModal, isOpen: false })}
-                onConfirm={handleConfirmDeleteAttachment}
-                isLoading={isUploadingArchive}
             />
 
             <div className={`max-w-[1400px] mx-auto flex flex-col gap-6 ${isModalOpen ? 'blur-sm' : ''}`}>
@@ -543,12 +416,18 @@ const AgendaSurat = () => {
                                 />
                             </div>
 
-                            <button onClick={() => setIsUploadModalOpen(true)} className="flex items-center justify-center gap-2 px-5 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-all font-semibold">
-                                <span className="material-symbols-outlined text-[20px]">upload_file</span>
-                                <span className="text-sm">Upload Data</span>
+                            <label className="flex items-center justify-center gap-2 px-4 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-colors cursor-pointer">
+                                <span className="material-symbols-outlined text-[20px]">upload</span>
+                                <span className="text-sm font-semibold">Import</span>
+                                <input type="file" accept=".csv" className="hidden" onChange={handleImportCSV} />
+                            </label>
+
+                            <button onClick={handleExportCSV} className="flex items-center justify-center gap-2 px-4 py-2 bg-[#272546] hover:bg-[#323055] text-white rounded-xl transition-colors">
+                                <span className="material-symbols-outlined text-[20px]">download</span>
+                                <span className="text-sm font-semibold">Export</span>
                             </button>
 
-                            <button onClick={() => handleOpenModal('add')} className="flex items-center justify-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/25 transition-all font-semibold">
+                            <button onClick={() => handleOpenModal('add')} className="flex items-center justify-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/25 transition-all">
                                 <span className="material-symbols-outlined text-[20px]">add</span>
                                 <span className="text-sm font-bold">Tambah Agenda</span>
                             </button>
@@ -573,7 +452,7 @@ const AgendaSurat = () => {
                             <table className="min-w-full text-left">
                                 <thead className="bg-[#1c1b2e] border-b border-[#272546]">
                                     <tr>
-                                        <th className="px-6 py-4 text-xs font-semibold text-[#9795c6] uppercase">No.</th>
+                                        <th className="px-6 py-4 text-xs font-semibold text-[#9795c6] uppercase">Agenda</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-[#9795c6] uppercase">Tgl. Surat</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-[#9795c6] uppercase">No. Surat</th>
                                         <th className="px-6 py-4 text-xs font-semibold text-[#9795c6] uppercase">Asal/Tujuan</th>
@@ -583,9 +462,9 @@ const AgendaSurat = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#272546]">
-                                    {paginatedData.map((letter, index) => (
+                                    {paginatedData.map((letter) => (
                                         <tr key={letter.id} className="hover:bg-[#272546]/30 transition-colors">
-                                            <td className="px-6 py-4 text-sm text-white font-mono">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                                            <td className="px-6 py-4 text-sm text-white font-mono">{letter.agendaNumber}</td>
                                             <td className="px-6 py-4 text-sm text-[#9795c6]">{letter.date}</td>
                                             <td className="px-6 py-4 text-sm text-white font-medium">{letter.referenceNumber}</td>
                                             <td className="px-6 py-4">
@@ -601,7 +480,7 @@ const AgendaSurat = () => {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1">
-                                                    {/* Attachment Preview — only shown if file exists */}
+                                                    {/* Attachment Preview ΓÇö only shown if file exists */}
                                                     {(letter.attachment_url || (letter.attachments && letter.attachments.length > 0)) && (
                                                         <a
                                                             href={letter.attachment_url || (letter.attachments && letter.attachments[0].attachment_url)}
@@ -644,8 +523,8 @@ const AgendaSurat = () => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto w-full h-full animate-in fade-in duration-300 ease-out">
-                    <div className="relative bg-[#1c1b2e] border border-[#272546] rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-90 duration-300 ease-out">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto w-full h-full">
+                    <div className="relative bg-[#1c1b2e] border border-[#272546] rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
                         <div className="px-6 py-4 border-b border-[#272546] flex items-center justify-between flex-shrink-0">
                             <h3 className="text-xl font-bold text-white">
                                 {modalMode === 'add' ? 'Tambah Agenda' : modalMode === 'edit' ? 'Edit Agenda' : 'Detail Agenda'}
@@ -675,9 +554,15 @@ const AgendaSurat = () => {
                                         </button>
                                     </div>
 
-                                    <div className="flex flex-col gap-1.5">
-                                        <label className="text-xs font-semibold text-[#9795c6] uppercase">Kode Klasifikasi</label>
-                                        <input className="input-field" value={formData.classificationCode} onChange={e => setFormData({ ...formData, classificationCode: e.target.value })} placeholder="e.g. 421.2" />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-semibold text-[#9795c6] uppercase">No. Agenda</label>
+                                            <input required className="input-field" value={formData.agendaNumber} onChange={e => setFormData({ ...formData, agendaNumber: e.target.value })} placeholder="001/2024" />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-semibold text-[#9795c6] uppercase">Kode Klasifikasi</label>
+                                            <input className="input-field" value={formData.classificationCode} onChange={e => setFormData({ ...formData, classificationCode: e.target.value })} placeholder="e.g. 421.2" />
+                                        </div>
                                     </div>
 
                                     <div className="flex flex-col gap-1.5">
@@ -688,31 +573,11 @@ const AgendaSurat = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-semibold text-[#9795c6] uppercase">Tanggal Surat</label>
-                                            <Flatpickr
-                                                className="input-field"
-                                                value={formData.date}
-                                                onChange={([date]) => {
-                                                    if(date) {
-                                                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-                                                        setFormData({ ...formData, date: offsetDate.toISOString().split('T')[0] });
-                                                    }
-                                                }}
-                                                options={{ dateFormat: 'Y-m-d' }}
-                                            />
+                                            <input type="date" className="input-field" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <label className="text-xs font-semibold text-[#9795c6] uppercase">{formData.type === 'incoming' ? 'Tanggal Terima' : 'Tanggal Kirim'}</label>
-                                            <Flatpickr
-                                                className="input-field"
-                                                value={formData.type === 'incoming' ? formData.receivedDate : formData.sentDate}
-                                                onChange={([date]) => {
-                                                    if(date) {
-                                                        const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-                                                        setFormData({ ...formData, [formData.type === 'incoming' ? 'receivedDate' : 'sentDate']: offsetDate.toISOString().split('T')[0] });
-                                                    }
-                                                }}
-                                                options={{ dateFormat: 'Y-m-d' }}
-                                            />
+                                            <input type="date" className="input-field" value={formData.type === 'incoming' ? formData.receivedDate : formData.sentDate} onChange={e => setFormData({ ...formData, [formData.type === 'incoming' ? 'receivedDate' : 'sentDate']: e.target.value })} />
                                         </div>
                                     </div>
 
@@ -743,13 +608,13 @@ const AgendaSurat = () => {
                                             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                                             onDragLeave={() => setIsDragOver(false)}
                                             onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFileChange(e.dataTransfer.files); }}
-                                            onClick={() => fileInputRefUpload.current?.click()}
+                                            onClick={() => fileInputRef.current?.click()}
                                             className={`border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all ${
                                                 isDragOver ? 'border-primary bg-primary/10' : 'border-[#272546] hover:border-[#4a4870] hover:bg-[#272546]/30'
                                             }`}
                                         >
                                             <input
-                                                ref={fileInputRefUpload}
+                                                ref={fileInputRef}
                                                 type="file"
                                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                                                 className="hidden"
@@ -770,7 +635,7 @@ const AgendaSurat = () => {
                                                             </button>
                                                         </div>
                                                     ))}
-                                                    <button type="button" onClick={(e) => { e.stopPropagation(); fileInputRefUpload.current?.click(); }} className="text-xs text-primary font-medium hover:underline mt-1">+ Tambah file lain</button>
+                                                    <button type="button" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }} className="text-xs text-primary font-medium hover:underline mt-1">+ Tambah file lain</button>
                                                 </div>
                                             ) : (
                                                 <>
@@ -798,7 +663,7 @@ const AgendaSurat = () => {
                                         )}
 
                                         {/* Progress Bar */}
-                                        {isUploadingArchive && (
+                                        {isUploading && (
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex justify-between text-xs text-[#9795c6]">
                                                     <span>Mengunggah ke Google Drive...</span>
@@ -841,147 +706,13 @@ const AgendaSurat = () => {
                                 <button
                                     form="letterForm"
                                     type="submit"
-                                    disabled={isSubmitting || isUploadingArchive}
+                                    disabled={isSubmitting || isUploading}
                                     className="px-6 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    {(isSubmitting || isUploadingArchive) && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                    {isUploadingArchive ? 'Mengunggah...' : isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
+                                    {(isSubmitting || isUploading) && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                    {isUploading ? 'Mengunggah...' : isSubmitting ? 'Menyimpan...' : 'Simpan Data'}
                                 </button>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Upload Modal */}
-            {isUploadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto w-full h-full animate-in fade-in duration-300 ease-out">
-                    <div className="relative bg-[#1c1b2e] border border-[#272546] rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col animate-in zoom-in-90 duration-300 ease-out">
-                        <div className="px-6 py-4 border-b border-[#272546] flex items-center justify-between flex-shrink-0">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary">upload_file</span>
-                                Upload Data Agenda
-                            </h3>
-                            <button onClick={closeUploadModal} className="text-[#9795c6] hover:text-white transition-colors">
-                                <span className="material-symbols-outlined">close</span>
-                            </button>
-                        </div>
-
-                        <div className="p-6 md:p-8 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-                            {/* Step 1: Download Template */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-white font-bold text-base px-1">1. Unduh Template Excel</h4>
-                                <p className="text-[#9795c6] text-xs px-1">Pilih jenis surat. Template akan berisi data yang sudah ada di database.</p>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => handleDownloadTemplate('incoming')}
-                                        className="flex items-center gap-3 p-4 bg-[#131221] rounded-xl border border-[#272546] hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all group"
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="material-symbols-outlined text-emerald-400">download</span>
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-white font-semibold text-sm group-hover:text-emerald-400 transition-colors">Surat Masuk</p>
-                                            <p className="text-[#9795c6] text-[11px]">Template_Surat_Masuk.xlsx</p>
-                                        </div>
-                                    </button>
-                                    <button
-                                        onClick={() => handleDownloadTemplate('outgoing')}
-                                        className="flex items-center gap-3 p-4 bg-[#131221] rounded-xl border border-[#272546] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all group"
-                                    >
-                                        <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                                            <span className="material-symbols-outlined text-indigo-400">download</span>
-                                        </div>
-                                        <div className="text-left">
-                                            <p className="text-white font-semibold text-sm group-hover:text-indigo-400 transition-colors">Surat Keluar</p>
-                                            <p className="text-[#9795c6] text-[11px]">Template_Surat_Keluar.xlsx</p>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Step 2: Upload File (Drag & Drop) */}
-                            <div className="flex flex-col gap-3">
-                                <h4 className="text-white font-bold text-base px-1">2. Unggah File Data</h4>
-                                <p className="text-[#9795c6] text-xs px-1">Jenis surat otomatis terdeteksi dari nama sheet. Data duplikat (No. Surat sama) akan diperbarui.</p>
-
-                                <div
-                                    className={`relative border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center gap-3 text-center cursor-pointer overflow-hidden
-                                        ${selectedFile ? 'border-primary bg-primary/5' : isDragging ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-[#272546] bg-[#131221] hover:border-primary/50 hover:bg-[#1a182b]'}
-                                        ${isUploading ? 'opacity-50 pointer-events-none' : ''}
-                                    `}
-                                    onDragOver={handleDragOver}
-                                    onDragLeave={handleDragLeave}
-                                    onDrop={handleDrop}
-                                    onClick={() => !selectedFile && fileInputRef.current?.click()}
-                                >
-                                    <input
-                                        type="file"
-                                        className="hidden"
-                                        accept=".xlsx, .xls, .csv"
-                                        ref={fileInputRef}
-                                        onChange={handleFileSelect}
-                                    />
-
-                                    {isUploading ? (
-                                        <div className="flex flex-col items-center gap-4">
-                                            <div className="w-12 h-12 border-4 border-[#272546] border-t-primary rounded-full animate-spin"></div>
-                                            <div className="text-white font-semibold">Memproses file...</div>
-                                        </div>
-                                    ) : selectedFile ? (
-                                        <div className="flex flex-col items-center gap-3">
-                                            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <span className="material-symbols-outlined text-[28px] text-primary">description</span>
-                                            </div>
-                                            <div className="flex flex-col gap-0.5">
-                                                <p className="text-white font-bold text-base">{selectedFile.name}</p>
-                                                <p className="text-[#9795c6] text-xs">{(selectedFile.size / 1024).toFixed(1)} KB</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if(fileInputRef.current) fileInputRef.current.value=''; }}
-                                                className="text-xs text-red-400 hover:text-red-300 transition-colors flex items-center gap-1 mt-1"
-                                            >
-                                                <span className="material-symbols-outlined text-[14px]">close</span>
-                                                Hapus file
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors
-                                                ${isDragging ? 'bg-primary text-white' : 'bg-[#272546] text-[#9795c6]'}
-                                            `}>
-                                                <span className="material-symbols-outlined text-[28px]">cloud_upload</span>
-                                            </div>
-                                            <div className="flex flex-col gap-0.5">
-                                                <p className="text-white font-bold text-base">Seret & lepas file Excel di sini</p>
-                                                <p className="text-[#9795c6] text-xs">Atau klik untuk memilih file</p>
-                                            </div>
-                                            <p className="text-[10px] text-[#4a4870] font-semibold mt-1">.xlsx, .xls, .csv</p>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="px-6 py-4 border-t border-[#272546] bg-[#1c1b2e] rounded-b-2xl flex justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={closeUploadModal}
-                                className="px-5 py-2 rounded-xl text-[#9795c6] hover:bg-[#272546] hover:text-white transition-colors font-semibold text-sm"
-                                disabled={isUploading}
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="button"
-                                onClick={processFile}
-                                disabled={!selectedFile || isUploading}
-                                className="px-6 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {isUploading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                                {isUploading ? 'Menyimpan...' : 'Simpan'}
-                            </button>
                         </div>
                     </div>
                 </div>

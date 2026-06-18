@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -8,8 +8,22 @@ const Sidebar = () => {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { isSidebarCollapsed, isMobileSidebarOpen, closeMobileSidebar } = useLayout();
+    const [openMenus, setOpenMenus] = useState({});
 
     const isActive = (path) => location.pathname === path;
+
+    const isItemActive = (item) => {
+        if (item.path && location.pathname === item.path) return true;
+        if (item.subItems && item.subItems.some(sub => location.pathname === sub.path)) return true;
+        return false;
+    };
+
+    const toggleMenu = (menuName) => {
+        setOpenMenus(prev => ({
+            ...prev,
+            [menuName]: prev[menuName] !== undefined ? !prev[menuName] : false
+        }));
+    };
 
     const handleLogout = async () => {
         try {
@@ -34,6 +48,14 @@ const Sidebar = () => {
                 { name: 'Data Siswa', icon: 'groups', path: '/data-siswa' },
                 { name: 'Pegawai', icon: 'badge', path: '/pegawai' },
                 { name: 'Rombongan Belajar', icon: 'class', path: '/rombel' },
+                { 
+                    name: 'Perpustakaan', icon: 'local_library', 
+                    subItems: [
+                        { name: 'Daftar Buku', path: '/perpustakaan/buku' },
+                        { name: 'Tambah Buku', path: '/perpustakaan/tambah-buku' },
+                        { name: 'Peminjaman', path: '/perpustakaan/peminjaman' }
+                    ] 
+                },
                 { name: 'Keuangan', icon: 'payments', path: '/keuangan' }
             ]
         },
@@ -77,29 +99,91 @@ const Sidebar = () => {
                             )}
                             {isSidebarCollapsed && idx > 0 && <div className="my-2 border-t border-[#272546] mx-2" />}
 
-                            {section.items.map((item) => (
-                                <Link
-                                    key={item.path}
-                                    to={item.path}
-                                    onClick={() => closeMobileSidebar()}
-                                    title={isSidebarCollapsed ? item.name : ''}
-                                    className={`
-                                        flex items-center gap-3 rounded-xl group transition-all
-                                        ${isSidebarCollapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
-                                        ${isActive(item.path)
-                                            ? 'bg-primary text-white shadow-md shadow-primary/20'
-                                            : 'text-[#9795c6] hover:bg-[#272546] hover:text-white transition-colors'
-                                        }`}
-                                >
-                                    <span className={`material-symbols-outlined ${!isActive(item.path) && 'group-hover:text-white transition-colors'
-                                        }`}>
-                                        {item.icon}
-                                    </span>
-                                    {!isSidebarCollapsed && (
-                                        <span className="text-sm font-medium truncate">{item.name}</span>
+                            {section.items.map((item) => {
+                                const active = isItemActive(item);
+                                const isOpen = openMenus[item.name] !== undefined ? openMenus[item.name] : active;
+
+                                return (
+                                <div key={item.name || item.path} className="flex flex-col">
+                                    {item.subItems ? (
+                                        <>
+                                            <div
+                                                onClick={() => {
+                                                    if (isSidebarCollapsed) {
+                                                        // Optional: open sidebar if collapsed when clicking submenu
+                                                    } else {
+                                                        toggleMenu(item.name);
+                                                    }
+                                                }}
+                                                title={isSidebarCollapsed ? item.name : ''}
+                                                className={`
+                                                    cursor-pointer flex items-center justify-between rounded-xl group transition-all
+                                                    ${isSidebarCollapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
+                                                    ${active
+                                                        ? 'bg-primary/10 text-primary'
+                                                        : 'text-[#9795c6] hover:bg-[#272546] hover:text-white transition-colors'
+                                                    }`}
+                                            >
+                                                <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                                                    <span className={`material-symbols-outlined ${!active && 'group-hover:text-white transition-colors'}`}>
+                                                        {item.icon}
+                                                    </span>
+                                                    {!isSidebarCollapsed && (
+                                                        <span className="text-sm font-medium truncate">{item.name}</span>
+                                                    )}
+                                                </div>
+                                                {!isSidebarCollapsed && (
+                                                    <span className={`material-symbols-outlined text-sm transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                                                        expand_more
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            {/* SubItems */}
+                                            {(!isSidebarCollapsed && isOpen) && (
+                                                <div className="flex flex-col gap-1 mt-1 pl-11 pr-3">
+                                                    {item.subItems.map(subItem => (
+                                                        <Link
+                                                            key={subItem.path}
+                                                            to={subItem.path}
+                                                            onClick={() => closeMobileSidebar()}
+                                                            className={`
+                                                                py-2 px-3 rounded-lg text-sm transition-all
+                                                                ${isActive(subItem.path)
+                                                                    ? 'bg-primary text-white shadow-md shadow-primary/20'
+                                                                    : 'text-[#9795c6] hover:text-white hover:bg-[#272546]'
+                                                                }
+                                                            `}
+                                                        >
+                                                            {subItem.name}
+                                                        </Link>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <Link
+                                            to={item.path}
+                                            onClick={() => closeMobileSidebar()}
+                                            title={isSidebarCollapsed ? item.name : ''}
+                                            className={`
+                                                flex items-center gap-3 rounded-xl group transition-all
+                                                ${isSidebarCollapsed ? 'justify-center p-2.5' : 'px-3 py-2.5'}
+                                                ${isActive(item.path)
+                                                    ? 'bg-primary text-white shadow-md shadow-primary/20'
+                                                    : 'text-[#9795c6] hover:bg-[#272546] hover:text-white transition-colors'
+                                                }`}
+                                        >
+                                            <span className={`material-symbols-outlined ${!isActive(item.path) && 'group-hover:text-white transition-colors'}`}>
+                                                {item.icon}
+                                            </span>
+                                            {!isSidebarCollapsed && (
+                                                <span className="text-sm font-medium truncate">{item.name}</span>
+                                            )}
+                                        </Link>
                                     )}
-                                </Link>
-                            ))}
+                                </div>
+                            )})}
                         </div>
                     ))}
                 </div>
@@ -109,14 +193,14 @@ const Sidebar = () => {
                     {!isSidebarCollapsed ? (
                         <div className="flex flex-col items-center gap-0.5 text-center">
                             <p className="text-white text-xs font-black tracking-wide">
-                                SERAT DINES <span className="text-[9px] font-semibold align-super">1.0</span>
+                                e-MANTAP <span className="text-[9px] font-semibold align-super">1.0</span>
                             </p>
                             <p className="text-[#686687] text-[10px] leading-tight">
                                 Copyright &copy; {new Date().getFullYear()}. All rights reserved.
                             </p>
                         </div>
                     ) : (
-                        <div className="flex justify-center" title="SERAT DINES 1.0">
+                        <div className="flex justify-center" title="e-MANTAP 1.0">
                             <span className="text-[#686687] text-[9px] font-bold">SD 1.0</span>
                         </div>
                     )}

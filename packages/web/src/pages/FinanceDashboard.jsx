@@ -43,7 +43,7 @@ const FinanceDashboard = () => {
 
                         {/* BMN Buku Perpus Card */}
                         <div
-                            onClick={() => navigate('/keuangan/perpus')}
+                            onClick={() => navigate('/perpustakaan/buku')}
                             className="glass-card group p-6 rounded-2xl border border-border-dark hover:border-blue-500/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 cursor-pointer flex flex-col gap-4"
                         >
                             <div className="flex items-start justify-between">

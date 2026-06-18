@@ -139,7 +139,7 @@ const AddLibraryBook = () => {
                 setSubmitProgress(prev => ({ ...prev, current: prev.current + 1 }));
             }
             showToast(`${qty} buku berhasil ditambahkan!`, 'success');
-            setTimeout(() => navigate('/keuangan/perpus'), 1500);
+            setTimeout(() => navigate('/perpustakaan/buku'), 1500);
         } catch (error) {
             console.error('Error adding book:', error);
             showToast('Gagal menambahkan buku: ' + error.message, 'error');
@@ -158,15 +158,9 @@ const AddLibraryBook = () => {
 
             {/* Breadcrumb & Header */}
             <div className="flex flex-col gap-3">
-                <nav className="flex text-sm text-slate-400">
-                    <Link to="/keuangan" className="hover:text-blue-400 transition-colors">Keuangan</Link>
-                    <span className="mx-2">/</span>
-                    <Link to="/keuangan/perpus" className="hover:text-blue-400 transition-colors">Buku Perpustakaan</Link>
-                    <span className="mx-2">/</span>
-                    <span className="text-white">Tambah Buku</span>
-                </nav>
+
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/keuangan/perpus')} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition-all">
+                    <button onClick={() => navigate('/perpustakaan/buku')} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/10 transition-all">
                         <span className="material-symbols-outlined">arrow_back</span>
                     </button>
                     <div>
@@ -435,7 +429,7 @@ const AddLibraryBook = () => {
                 <div className="flex items-center justify-end gap-4 pt-2">
                     <button
                         type="button"
-                        onClick={() => navigate('/keuangan/perpus')}
+                        onClick={() => navigate('/perpustakaan/buku')}
                         disabled={isSubmitting}
                         className="flex items-center gap-2 px-7 py-3 text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl transition-all disabled:opacity-50"
                     >
