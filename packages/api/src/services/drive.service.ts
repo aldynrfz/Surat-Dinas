@@ -1,7 +1,5 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
-import path from 'path';
-import fs from 'fs';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
@@ -12,61 +10,41 @@ export interface UploadResult {
 }
 
 export class DriveService {
-    private auth;
-    private drive;
+    private drive: any;
     private folderId: string;
     private isReady: boolean = false;
 
     constructor() {
-        // Fix typo based on screenshot: '6l8' -> '6I8'
         this.folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '1EtKmGg7k04U6l8iynRD5tJk11CTY59u4';
-        
-        // Setup OAuth2
-        this.setupOAuth();
+        this.setupServiceAccount();
     }
 
-    private setupOAuth() {
-        const credentialsPath = path.resolve(__dirname, '../../credentials.json');
-        const tokenPath = path.resolve(__dirname, '../../token.json');
+    private setupServiceAccount() {
+        const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+        const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-        if (!fs.existsSync(credentialsPath)) {
-            console.error('credentials.json not found! Please download from Google Cloud Console.');
-            return;
-        }
-
-        if (!fs.existsSync(tokenPath)) {
-            console.error('token.json not found! Please run "node generate-token.js" first.');
+        if (!clientEmail || !privateKey) {
+            console.error('❌ GOOGLE_CLIENT_EMAIL or GOOGLE_PRIVATE_KEY not set! Google Drive upload will not work.');
             return;
         }
 
         try {
-            const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
-            const { client_secret, client_id, redirect_uris } = credentials.installed || credentials.web;
+            // Replace literal \n with actual newlines (needed when reading from env vars)
+            const formattedKey = privateKey.replace(/\\n/g, '\n');
 
-            const oAuth2Client = new google.auth.OAuth2(
-                client_id, 
-                client_secret, 
-                redirect_uris[0]
-            );
-
-            const token = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-            oAuth2Client.setCredentials(token);
-
-            // Setup token auto-refresh saving
-            oAuth2Client.on('tokens', (tokens) => {
-                if (tokens.refresh_token) {
-                    console.log('Refreshed OAuth token received, saving...');
-                    const currentTokens = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-                    fs.writeFileSync(tokenPath, JSON.stringify({ ...currentTokens, ...tokens }));
-                }
+            const auth = new google.auth.GoogleAuth({
+                credentials: {
+                    client_email: clientEmail,
+                    private_key: formattedKey,
+                },
+                scopes: SCOPES,
             });
 
-            this.auth = oAuth2Client;
-            this.drive = google.drive({ version: 'v3', auth: this.auth });
+            this.drive = google.drive({ version: 'v3', auth });
             this.isReady = true;
-            console.log('Drive Service Ready with OAuth 2.0');
+            console.log('✅ Drive Service Ready with Service Account');
         } catch (error) {
-            console.error('Error setting up Drive Service OAuth2:', error);
+            console.error('❌ Error setting up Drive Service:', error);
         }
     }
 
@@ -79,7 +57,7 @@ export class DriveService {
         mimeType: string
     ): Promise<UploadResult> {
         if (!this.isReady) {
-            throw new Error('Drive API tidak siap. Pastikan credentials.json dan token.json sudah ada (baca panduan).');
+            throw new Error('Drive API tidak siap. Pastikan GOOGLE_CLIENT_EMAIL dan GOOGLE_PRIVATE_KEY sudah diset di environment variables.');
         }
         const bufferStream = new Readable();
         bufferStream.push(fileBuffer);
@@ -139,3 +117,4 @@ export class DriveService {
         });
     }
 }
+
