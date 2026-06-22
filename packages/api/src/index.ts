@@ -14,30 +14,23 @@ async function shutdown() {
     process.exit(0);
 }
 
-// Start server (only if not running in Vercel Serverless environment)
+// Start server
 async function start() {
     try {
         // Test Firestore connection
         await db.listCollections();
         logger.info('Firebase Firestore connected successfully');
 
-        if (!process.env.VERCEL) {
-            app.listen(PORT, () => {
-                logger.info(`Server is running on port ${PORT}`);
-                logger.info(`Environment: ${config.env}`);
-                logger.info(`API URL: ${config.server.apiUrl}`);
-                logger.info(`Firebase Project: ${config.firebase.projectId}`);
-            });
-        }
+        app.listen(PORT, () => {
+            logger.info(`Server is running on port ${PORT}`);
+            logger.info(`Environment: ${config.env}`);
+            logger.info(`API URL: ${config.server.apiUrl}`);
+            logger.info(`Firebase Project: ${config.firebase.projectId}`);
+        });
     } catch (error) {
         logger.error('Failed to start server:', error);
-        if (!process.env.VERCEL) {
-            process.exit(1);
-        }
+        process.exit(1);
     }
 }
 
 start();
-
-// Export app for Vercel Serverless Functions
-export default app;

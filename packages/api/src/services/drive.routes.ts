@@ -42,7 +42,7 @@ router.post('/upload', upload.array('files', 10), async (req: Request, res: Resp
 
         const { agendaId } = req.body;
 
-        logger.info(`Uploading ${files.length} files... agendaId=${agendaId}`);
+        logger.info(`Uploading ${files.length} files...`);
 
         // Upload to Google Drive
         const uploadPromises = files.map(file => 
