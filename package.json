@@ -29,7 +29,7 @@
     "@mui/material": "^7.3.7",
     "@mui/x-date-pickers": "^8.27.0",
     "dayjs": "^1.11.19",
-    "firebase": "^12.9.0",
+    "firebase": "^12.15.0",
     "flatpickr": "^4.6.13",
     "react-flatpickr": "^4.0.11"
   }

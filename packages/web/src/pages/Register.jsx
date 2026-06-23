@@ -166,7 +166,7 @@ const Register = () => {
                 </div>
 
                 <div className="mt-8 text-center">
-                    <p className="text-slate-500 dark:text-slate-500 text-xs font-medium">© 2024 Surat Dinas System. All rights reserved.</p>
+                    <p className="text-slate-500 dark:text-slate-500 text-xs font-medium">© 2024 e-MANTAP. All rights reserved.</p>
                 </div>
             </div>
         </div>

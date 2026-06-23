@@ -7,6 +7,8 @@ import Flatpickr from 'react-flatpickr';
 import { Indonesian } from 'flatpickr/dist/l10n/id.js';
 import 'flatpickr/dist/themes/dark.css';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 const StudentData = () => {
     const navigate = useNavigate();
@@ -136,62 +138,128 @@ const StudentData = () => {
 
     // --- Upload Excel Data ---
 
-    const handleDownloadTemplate = () => {
-        // Data yang sudah ada (untuk mencegah duplikasi / sebagai acuan format)
-        const currentData = students.map((s) => ({
-            'Nama Lengkap': s.name || '',
-            'NIS': s.nis || '',
-            'NISN': s.nisn || '',
-            'Jenis Kelamin': s.gender || 'L',
-            'Tempat Lahir': s.placeOfBirth || '',
-            'Tanggal Lahir': s.dateOfBirth || '',
-            'Nama Orang Tua': s.parentName || '',
-            'Pekerjaan Orang Tua': s.parentJob || '',
-            'Jalan': s.address || '',
-            'RT': s.rt || '',
-            'RW': s.rw || '',
-            'Desa/Kelurahan': s.village || '',
-            'Kecamatan': s.district || '',
-            'Kota/Kabupaten': s.city || '',
-            'Provinsi': s.province || '',
-            'Kode Pos': s.postalCode || ''
-        }));
+    const handleDownloadTemplate = async () => {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Data_Siswa');
 
-        // Jika kosong, sediakan 1 baris contoh
-        const wsData = currentData.length > 0 ? currentData : [{
-            'Nama Lengkap': 'John Doe',
-            'NIS': '123456',
-            'NISN': '0012345678',
-            'Jenis Kelamin': 'L',
-            'Tempat Lahir': 'Jakarta',
-            'Tanggal Lahir': '2005-01-01',
-            'Nama Orang Tua': 'Doe Senior',
-            'Pekerjaan Orang Tua': 'Wiraswasta',
-            'Jalan': 'Jl. Merdeka No. 1',
-            'RT': '01',
-            'RW': '02',
-            'Desa/Kelurahan': 'Merdeka',
-            'Kecamatan': 'Pusat',
-            'Kota/Kabupaten': 'Jakarta Pusat',
-            'Provinsi': 'DKI Jakarta',
-            'Kode Pos': '10110'
-        }];
-
-        const ws = XLSX.utils.json_to_sheet(wsData);
-
-        // Styling dan lebar kolom
-        const colWidths = [
-            { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
-            { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 20 },
-            { wch: 30 }, { wch: 5 }, { wch: 5 }, { wch: 15 },
-            { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 10 }
+        // Definisi Kolom
+        sheet.columns = [
+            { header: 'Nama Lengkap', key: 'name', width: 25 },
+            { header: 'NIS', key: 'nis', width: 15 },
+            { header: 'NISN', key: 'nisn', width: 15 },
+            { header: 'NIK Siswa', key: 'nikSiswa', width: 20 },
+            { header: 'No KK', key: 'noKk', width: 20 },
+            { header: 'Jenis Kelamin', key: 'gender', width: 15 }, // Dropdown
+            { header: 'Tempat Lahir', key: 'placeOfBirth', width: 20 },
+            { header: 'Tanggal Lahir', key: 'dateOfBirth', width: 15 }, // YYYY-MM-DD
+            { header: 'Agama', key: 'agama', width: 15 }, // Dropdown
+            { header: 'Anak Ke', key: 'anakKe', width: 10 },
+            { header: 'Jumlah Saudara', key: 'jumlahSaudara', width: 15 },
+            { header: 'Cita-cita', key: 'citaCita', width: 20 }, // Dropdown
+            { header: 'Hobi', key: 'hobi', width: 20 }, // Dropdown
+            { header: 'No Handphone', key: 'phone', width: 15 },
+            { header: 'Email', key: 'email', width: 25 },
+            // Ayah
+            { header: 'NIK Ayah', key: 'ayahNik', width: 20 },
+            { header: 'Nama Ayah', key: 'ayahNama', width: 25 },
+            { header: 'Status Ayah', key: 'ayahStatus', width: 15 }, // Dropdown
+            { header: 'Tempat Lahir Ayah', key: 'ayahTempatLahir', width: 20 },
+            { header: 'Tanggal Lahir Ayah', key: 'ayahTanggalLahir', width: 15 }, // YYYY-MM-DD
+            { header: 'Pendidikan Ayah', key: 'ayahPendidikan', width: 20 }, // Dropdown
+            { header: 'Pekerjaan Ayah', key: 'ayahPekerjaan', width: 20 }, // Dropdown
+            // Ibu
+            { header: 'NIK Ibu', key: 'ibuNik', width: 20 },
+            { header: 'Nama Ibu', key: 'ibuNama', width: 25 },
+            { header: 'Status Ibu', key: 'ibuStatus', width: 15 }, // Dropdown
+            { header: 'Tempat Lahir Ibu', key: 'ibuTempatLahir', width: 20 },
+            { header: 'Tanggal Lahir Ibu', key: 'ibuTanggalLahir', width: 15 },
+            { header: 'Pendidikan Ibu', key: 'ibuPendidikan', width: 20 }, // Dropdown
+            { header: 'Pekerjaan Ibu', key: 'ibuPekerjaan', width: 20 }, // Dropdown
+            // Wali
+            { header: 'NIK Wali', key: 'waliNik', width: 20 },
+            { header: 'Nama Wali', key: 'waliNama', width: 25 },
+            { header: 'Tempat Lahir Wali', key: 'waliTempatLahir', width: 20 },
+            { header: 'Tanggal Lahir Wali', key: 'waliTanggalLahir', width: 15 },
+            { header: 'Pendidikan Wali', key: 'waliPendidikan', width: 20 }, // Dropdown
+            { header: 'Pekerjaan Wali', key: 'waliPekerjaan', width: 20 }, // Dropdown
+            // Penghasilan & Alamat
+            { header: 'Penghasilan Ortu', key: 'penghasilanOrtu', width: 25 }, // Dropdown
+            { header: 'Alamat Jalan', key: 'address', width: 30 },
+            { header: 'RT', key: 'rt', width: 5 },
+            { header: 'RW', key: 'rw', width: 5 },
+            { header: 'Desa/Kelurahan', key: 'village', width: 15 },
+            { header: 'Kecamatan', key: 'district', width: 15 },
+            { header: 'Kota/Kabupaten', key: 'city', width: 20 },
+            { header: 'Provinsi', key: 'province', width: 20 },
+            { header: 'Kode Pos', key: 'postalCode', width: 10 },
+            { header: 'Jarak ke Madrasah', key: 'jarakMadrasah', width: 20 }, // Dropdown
+            { header: 'Transportasi', key: 'transportasi', width: 20 }, // Dropdown
+            { header: 'Waktu Tempuh', key: 'waktuTempuh', width: 20 } // Dropdown
         ];
-        ws['!cols'] = colWidths;
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Data_Siswa");
+        // Style Header
+        sheet.getRow(1).font = { bold: true };
 
-        XLSX.writeFile(wb, "Template_Data_Siswa.xlsx");
+        // Tambah Data (Existing)
+        if (students.length > 0) {
+            students.forEach(s => {
+                sheet.addRow({
+                    name: s.name || '', nis: s.nis || '', nisn: s.nisn || '', nikSiswa: s.nikSiswa || '',
+                    noKk: s.noKk || '', gender: s.gender || 'L', placeOfBirth: s.placeOfBirth || '',
+                    dateOfBirth: s.dateOfBirth || '', agama: s.agama || '', anakKe: s.anakKe || '',
+                    jumlahSaudara: s.jumlahSaudara || '', citaCita: s.citaCita || '', hobi: s.hobi || '',
+                    phone: s.phone || '', email: s.email || '',
+                    ayahNik: s.ayahNik || '', ayahNama: s.ayahNama || '', ayahStatus: s.ayahStatus || '',
+                    ayahTempatLahir: s.ayahTempatLahir || '', ayahTanggalLahir: s.ayahTanggalLahir || '', ayahPendidikan: s.ayahPendidikan || '', ayahPekerjaan: s.ayahPekerjaan || '',
+                    ibuNik: s.ibuNik || '', ibuNama: s.ibuNama || '', ibuStatus: s.ibuStatus || '',
+                    ibuTempatLahir: s.ibuTempatLahir || '', ibuTanggalLahir: s.ibuTanggalLahir || '', ibuPendidikan: s.ibuPendidikan || '', ibuPekerjaan: s.ibuPekerjaan || '',
+                    waliNik: s.waliNik || '', waliNama: s.waliNama || '', waliTempatLahir: s.waliTempatLahir || '', waliTanggalLahir: s.waliTanggalLahir || '',
+                    waliPendidikan: s.waliPendidikan || '', waliPekerjaan: s.waliPekerjaan || '',
+                    penghasilanOrtu: s.penghasilanOrtu || '', address: s.address || '', rt: s.rt || '', rw: s.rw || '',
+                    village: s.village || '', district: s.district || '', city: s.city || '', province: s.province || '', postalCode: s.postalCode || '',
+                    jarakMadrasah: s.jarakMadrasah || '', transportasi: s.transportasi || '', waktuTempuh: s.waktuTempuh || ''
+                });
+            });
+        } else {
+            // Contoh baris
+            sheet.addRow({
+                name: 'John Doe', nis: '123456', gender: 'L', dateOfBirth: '2005-01-01', ayahNama: 'Doe Senior'
+            });
+        }
+
+        // Data Validation Dropdowns (Apply to rows 2 to 1000)
+        const dropdowns = {
+            'F': ['L', 'P'], // Gender
+            'I': ['Islam', 'Kristen Protestan', 'Katolik', 'Hindu', 'Buddha', 'Kong Hu Cu'], // Agama
+            'L': ['PNS', 'Guru/Dosen', 'Dokter', 'Politikus', 'Wiraswasta', 'Seniman/Artis', 'Ilmuwan', 'Agamawan', 'Lainnya'], // Cita-cita
+            'M': ['Olahraga', 'Kesenian', 'Membaca', 'Menulis', 'Jalan-jalan', 'Lainnya'], // Hobi
+            'R': ['Masih Hidup', 'Sudah Meninggal', 'Tidak Diketahui'], // Status Ayah
+            'U': ['SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3', 'Tidak Bersekolah', 'Lainnya'], // Pendidikan Ayah
+            'V': ['Belum/tidak bekerja', 'Buruh harian lepas', 'Wiraswasta', 'Pedagang', 'PNS', 'Guru/Dosen', 'Karyawan swasta', 'Perangkat desa', 'Sopir', 'Arsitek', 'Montir', 'Petani/Peternak/Nelayan', 'Pensiunan', 'Polri', 'TNI', 'Karyawan honorer', 'Agamawan/Ustad/Guru Ngaji', 'Lainnya'], // Pekerjaan Ayah
+            'Y': ['Masih Hidup', 'Sudah Meninggal', 'Tidak Diketahui'], // Status Ibu
+            'AB': ['SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3', 'Tidak Bersekolah', 'Lainnya'], // Pendidikan Ibu
+            'AC': ['Belum/tidak bekerja', 'Buruh harian lepas', 'Wiraswasta', 'Pedagang', 'PNS', 'Guru/Dosen', 'Karyawan swasta', 'Perangkat desa', 'Sopir', 'Arsitek', 'Montir', 'Petani/Peternak/Nelayan', 'Pensiunan', 'Polri', 'TNI', 'Karyawan honorer', 'Agamawan/Ustad/Guru Ngaji', 'Lainnya'], // Pekerjaan Ibu
+            'AH': ['SD/Sederajat', 'SMP/Sederajat', 'SMA/Sederajat', 'D1', 'D2', 'D3', 'D4/S1', 'S2', 'S3', 'Tidak Bersekolah', 'Lainnya'], // Pendidikan Wali
+            'AI': ['Belum/tidak bekerja', 'Buruh harian lepas', 'Wiraswasta', 'Pedagang', 'PNS', 'Guru/Dosen', 'Karyawan swasta', 'Perangkat desa', 'Sopir', 'Arsitek', 'Montir', 'Petani/Peternak/Nelayan', 'Pensiunan', 'Polri', 'TNI', 'Karyawan honorer', 'Agamawan/Ustad/Guru Ngaji', 'Lainnya'], // Pekerjaan Wali
+            'AJ': ['dibawah 800.000', '800.000 - 1.200.000', '1.200.000 - 1.800.000', '1.800.000 - 2.500.000', '2.500.000 - 3.500.000', '3.500.000 - 4.800.000', '4.800.000 - 6.500.000', '6.500.000 - 10.000.000', '10.000.000 - 20.000.000', 'diatas 20.000.000'], // Penghasilan
+            'AS': ['kurang dari 5 Km', 'Antara 5-10 Km', 'Antara 11-20 Km', 'Antara 21-30 Km', 'Lebih dari 30 Km'], // Jarak
+            'AT': ['Jalan Kaki', 'Sepeda Motor', 'Mobil Pribadi', 'Antar Jemput Sekolah', 'Angkutan Umum', 'Perahu/Sampan', 'Kereta Api', 'Ojek', 'Andong/Bendi/Sado/Dokar/Delman/Becak'], // Transportasi
+            'AU': ['1-10 menit', '10-19 menit', '20-29 menit', '30-39 menit', '1-2 jam', '> 2 jam'] // Waktu Tempuh
+        };
+
+        for (let i = 2; i <= 1000; i++) {
+            for (const [col, options] of Object.entries(dropdowns)) {
+                sheet.getCell(`${col}${i}`).dataValidation = {
+                    type: 'list',
+                    allowBlank: true,
+                    formulae: [`"${options.join(',')}"`]
+                };
+            }
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, "Template_Data_Siswa.xlsx");
     };
 
     const handleDrag = (e) => {
@@ -226,15 +294,17 @@ const StudentData = () => {
             const reader = new FileReader();
             reader.onload = async (e) => {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+                    const workbook = new ExcelJS.Workbook();
+                    await workbook.xlsx.load(e.target.result);
+                    const worksheet = workbook.worksheets[0];
+                    
+                    if (!worksheet) throw new Error('File Excel kosong.');
 
-                    if (jsonData.length === 0) {
-                        throw new Error('File Excel kosong atau format tidak sesuai.');
-                    }
+                    // Get header row mapping
+                    const headers = {};
+                    worksheet.getRow(1).eachCell((cell, colNumber) => {
+                        headers[cell.value] = colNumber;
+                    });
 
                     // Pemetaan NIS untuk deduplikasi
                     const existingByNis = {};
@@ -245,27 +315,83 @@ const StudentData = () => {
                     let addedCount = 0;
                     let updatedCount = 0;
 
-                    for (const row of jsonData) {
-                        const nisStr = row['NIS'] ? row['NIS'].toString() : '';
+                    for (let i = 2; i <= worksheet.rowCount; i++) {
+                        const row = worksheet.getRow(i);
+                        const getVal = (colName) => {
+                            const val = row.getCell(headers[colName]).value;
+                            if (val && typeof val === 'object' && val.text) return val.text; // formula/rich text
+                            return val ? val.toString() : '';
+                        };
+
+                        const nisStr = getVal('NIS');
                         if (!nisStr) continue; // Skip jika tidak ada NIS
 
+                        const dateOfBirthVal = row.getCell(headers['Tanggal Lahir']).value;
+                        let dateOfBirth = '';
+                        if (dateOfBirthVal instanceof Date) {
+                            dateOfBirth = dateOfBirthVal.toISOString().split('T')[0];
+                        } else {
+                            dateOfBirth = parseExcelDate(dateOfBirthVal);
+                        }
+
+                        const ayahTanggalLahirVal = row.getCell(headers['Tanggal Lahir Ayah']).value;
+                        const ibuTanggalLahirVal = row.getCell(headers['Tanggal Lahir Ibu']).value;
+                        const waliTanggalLahirVal = row.getCell(headers['Tanggal Lahir Wali']).value;
+
                         const studentData = {
-                            name: row['Nama Lengkap'] || '',
+                            name: getVal('Nama Lengkap'),
                             nis: nisStr,
-                            nisn: row['NISN'] ? row['NISN'].toString() : '',
-                            gender: (row['Jenis Kelamin'] && row['Jenis Kelamin'].toUpperCase() === 'P') ? 'P' : 'L',
-                            placeOfBirth: row['Tempat Lahir'] || '',
-                            dateOfBirth: parseExcelDate(row['Tanggal Lahir']),
-                            parentName: row['Nama Orang Tua'] || '',
-                            parentJob: row['Pekerjaan Orang Tua'] || '',
-                            address: row['Jalan'] || '',
-                            rt: row['RT'] ? row['RT'].toString() : '',
-                            rw: row['RW'] ? row['RW'].toString() : '',
-                            village: row['Desa/Kelurahan'] || '',
-                            district: row['Kecamatan'] || '',
-                            city: row['Kota/Kabupaten'] || '',
-                            province: row['Provinsi'] || '',
-                            postalCode: row['Kode Pos'] ? row['Kode Pos'].toString() : ''
+                            nisn: getVal('NISN'),
+                            nikSiswa: getVal('NIK Siswa'),
+                            noKk: getVal('No KK'),
+                            gender: (getVal('Jenis Kelamin').toUpperCase() === 'P') ? 'P' : 'L',
+                            placeOfBirth: getVal('Tempat Lahir'),
+                            dateOfBirth: dateOfBirth,
+                            agama: getVal('Agama'),
+                            anakKe: getVal('Anak Ke'),
+                            jumlahSaudara: getVal('Jumlah Saudara'),
+                            citaCita: getVal('Cita-cita'),
+                            hobi: getVal('Hobi'),
+                            phone: getVal('No Handphone'),
+                            email: getVal('Email'),
+                            
+                            ayahNik: getVal('NIK Ayah'),
+                            ayahNama: getVal('Nama Ayah'),
+                            ayahStatus: getVal('Status Ayah'),
+                            ayahTempatLahir: getVal('Tempat Lahir Ayah'),
+                            ayahTanggalLahir: ayahTanggalLahirVal instanceof Date ? ayahTanggalLahirVal.toISOString().split('T')[0] : parseExcelDate(ayahTanggalLahirVal),
+                            ayahPendidikan: getVal('Pendidikan Ayah'),
+                            ayahPekerjaan: getVal('Pekerjaan Ayah'),
+
+                            ibuNik: getVal('NIK Ibu'),
+                            ibuNama: getVal('Nama Ibu'),
+                            ibuStatus: getVal('Status Ibu'),
+                            ibuTempatLahir: getVal('Tempat Lahir Ibu'),
+                            ibuTanggalLahir: ibuTanggalLahirVal instanceof Date ? ibuTanggalLahirVal.toISOString().split('T')[0] : parseExcelDate(ibuTanggalLahirVal),
+                            ibuPendidikan: getVal('Pendidikan Ibu'),
+                            ibuPekerjaan: getVal('Pekerjaan Ibu'),
+
+                            waliNik: getVal('NIK Wali'),
+                            waliNama: getVal('Nama Wali'),
+                            waliTempatLahir: getVal('Tempat Lahir Wali'),
+                            waliTanggalLahir: waliTanggalLahirVal instanceof Date ? waliTanggalLahirVal.toISOString().split('T')[0] : parseExcelDate(waliTanggalLahirVal),
+                            waliPendidikan: getVal('Pendidikan Wali'),
+                            waliPekerjaan: getVal('Pekerjaan Wali'),
+
+                            penghasilanOrtu: getVal('Penghasilan Ortu'),
+
+                            address: getVal('Alamat Jalan'),
+                            rt: getVal('RT'),
+                            rw: getVal('RW'),
+                            village: getVal('Desa/Kelurahan'),
+                            district: getVal('Kecamatan'),
+                            city: getVal('Kota/Kabupaten'),
+                            province: getVal('Provinsi'),
+                            postalCode: getVal('Kode Pos'),
+                            
+                            jarakMadrasah: getVal('Jarak ke Madrasah'),
+                            transportasi: getVal('Transportasi'),
+                            waktuTempuh: getVal('Waktu Tempuh')
                         };
 
                         const existing = existingByNis[nisStr];
@@ -378,7 +504,7 @@ const StudentData = () => {
                                 <span className="material-symbols-outlined text-[20px]">upload</span>
                                 <span className="text-sm font-semibold">Upload Data</span>
                             </button>
-                            <button onClick={() => handleOpenModal('add')} className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/25 transition-all whitespace-nowrap">
+                            <button onClick={() => navigate('/data-siswa/tambah-siswa')} className="flex items-center gap-2 px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/25 transition-all whitespace-nowrap">
                                 <span className="material-symbols-outlined text-[20px]">add</span>
                                 <span className="text-sm font-bold">Tambah Siswa</span>
                             </button>
@@ -446,7 +572,7 @@ const StudentData = () => {
                                                     <button onClick={() => handleOpenModal('detail', student)} className="p-1.5 hover:bg-blue-500/10 text-[#9795c6] hover:text-blue-400 rounded-lg transition-colors" title="Detail">
                                                         <span className="material-symbols-outlined text-[18px]">visibility</span>
                                                     </button>
-                                                    <button onClick={() => handleOpenModal('edit', student)} className="p-1.5 hover:bg-amber-500/10 text-[#9795c6] hover:text-amber-400 rounded-lg transition-colors" title="Edit">
+                                                    <button onClick={() => navigate('/data-siswa/edit-siswa/' + student.id)} className="p-1.5 hover:bg-amber-500/10 text-[#9795c6] hover:text-amber-400 rounded-lg transition-colors" title="Edit">
                                                         <span className="material-symbols-outlined text-[18px]">edit</span>
                                                     </button>
                                                     <button onClick={() => handleDeleteClick(student)} className="p-1.5 hover:bg-red-500/10 text-[#9795c6] hover:text-red-400 rounded-lg transition-colors" title="Hapus">
@@ -505,14 +631,21 @@ const StudentData = () => {
                                     </div>
 
                                     {/* Data Pribadi */}
+                                    {/* Data Pribadi */}
                                     <div>
                                         <h5 className="text-primary font-bold text-xs uppercase tracking-wider border-b border-[#272546] pb-2 mb-3">Data Pribadi</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                                             {[
-                                                { label: 'NIS', value: selectedStudent.nis },
-                                                { label: 'NISN', value: selectedStudent.nisn },
-                                                { label: 'Tempat Lahir', value: selectedStudent.placeOfBirth },
-                                                { label: 'Tanggal Lahir', value: selectedStudent.dateOfBirth },
+                                                { label: 'NIS / NISN', value: `${selectedStudent.nis || '-'} / ${selectedStudent.nisn || '-'}` },
+                                                { label: 'NIK Siswa', value: selectedStudent.nikSiswa },
+                                                { label: 'No KK', value: selectedStudent.noKk },
+                                                { label: 'Tempat / Tgl Lahir', value: `${selectedStudent.placeOfBirth || '-'}, ${selectedStudent.dateOfBirth || '-'}` },
+                                                { label: 'Agama', value: selectedStudent.agama },
+                                                { label: 'Anak Ke / Jml Saudara', value: `${selectedStudent.anakKe || '-'} dari ${selectedStudent.jumlahSaudara || '-'}` },
+                                                { label: 'Cita-cita', value: selectedStudent.citaCita },
+                                                { label: 'Hobi', value: selectedStudent.hobi },
+                                                { label: 'No Handphone', value: selectedStudent.phone },
+                                                { label: 'Email', value: selectedStudent.email },
                                             ].map(({ label, value }) => (
                                                 <div key={label} className="flex flex-col gap-0.5">
                                                     <span className="text-[#686687] text-xs font-semibold uppercase">{label}</span>
@@ -527,8 +660,15 @@ const StudentData = () => {
                                         <h5 className="text-primary font-bold text-xs uppercase tracking-wider border-b border-[#272546] pb-2 mb-3">Data Orang Tua / Wali</h5>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
                                             {[
-                                                { label: 'Nama Orang Tua', value: selectedStudent.parentName },
-                                                { label: 'Pekerjaan', value: selectedStudent.parentJob },
+                                                { label: 'Nama Ayah', value: selectedStudent.ayahNama },
+                                                { label: 'Tgl Lahir Ayah', value: selectedStudent.ayahTanggalLahir },
+                                                { label: 'Status Ayah', value: selectedStudent.ayahStatus },
+                                                { label: 'Pekerjaan Ayah', value: selectedStudent.ayahPekerjaan },
+                                                { label: 'Nama Ibu', value: selectedStudent.ibuNama },
+                                                { label: 'Status Ibu', value: selectedStudent.ibuStatus },
+                                                { label: 'Pekerjaan Ibu', value: selectedStudent.ibuPekerjaan },
+                                                { label: 'Nama Wali', value: selectedStudent.waliNama },
+                                                { label: 'Penghasilan Ortu/Wali', value: selectedStudent.penghasilanOrtu },
                                             ].map(({ label, value }) => (
                                                 <div key={label} className="flex flex-col gap-0.5">
                                                     <span className="text-[#686687] text-xs font-semibold uppercase">{label}</span>
@@ -554,6 +694,9 @@ const StudentData = () => {
                                                 { label: 'Kota/Kab', value: selectedStudent.city },
                                                 { label: 'Provinsi', value: selectedStudent.province },
                                                 { label: 'Kode Pos', value: selectedStudent.postalCode },
+                                                { label: 'Jarak ke Madrasah', value: selectedStudent.jarakMadrasah },
+                                                { label: 'Transportasi', value: selectedStudent.transportasi },
+                                                { label: 'Waktu Tempuh', value: selectedStudent.waktuTempuh },
                                             ].map(({ label, value }) => (
                                                 <div key={label} className="flex flex-col gap-0.5">
                                                     <span className="text-[#686687] text-xs font-semibold uppercase">{label}</span>

@@ -9,7 +9,7 @@ import SchoolProfile from './pages/SchoolProfile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import StudentData from './pages/StudentData';
-import AddStudent from './pages/AddStudent';
+import StudentForm from './pages/StudentForm';
 import EmployeeData from './pages/EmployeeData';
 import AddEmployee from './pages/AddEmployee';
 import StudyGroupData from './pages/StudyGroupData';
@@ -110,7 +110,8 @@ function App() {
                     <Route path="/riwayat-surat" element={<LetterHistory />} />
                     <Route path="/agenda-surat" element={<AgendaSurat />} />
                     <Route path="/data-siswa" element={<StudentData />} />
-                    <Route path="/data-siswa/tambah" element={<AddStudent />} />
+                    <Route path="/data-siswa/tambah-siswa" element={<StudentForm mode="add" />} />
+                    <Route path="/data-siswa/edit-siswa/:id" element={<StudentForm mode="edit" />} />
                     <Route path="/pegawai" element={<EmployeeData />} />
                     <Route path="/pegawai/tambah" element={<AddEmployee />} />
                     <Route path="/rombel" element={<StudyGroupData />} />

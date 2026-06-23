@@ -47,7 +47,7 @@ const Login = () => {
                         <div className="bg-primary/20 p-3 rounded-full mb-4">
                             <span className="material-symbols-outlined text-primary text-4xl">school</span>
                         </div>
-                        <h1 className="tracking-tight text-3xl font-bold leading-tight text-center">Surat Dinas</h1>
+                        <h1 className="tracking-tight text-3xl font-bold leading-tight text-center">eMANTAP</h1>
                         <p className="text-slate-500 dark:text-[#9795c6] text-sm font-normal leading-normal pt-2 text-center">Selamat datang! Silakan login ke akun Anda.</p>
                     </div>
 
